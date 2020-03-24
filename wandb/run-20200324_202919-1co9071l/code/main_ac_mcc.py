@@ -19,7 +19,6 @@ from pygifsicle import optimize
 
 from vpg import AC
 from policies import MLP_AC
-import argparse
 
 
 def visualize():
@@ -57,16 +56,11 @@ def net_layers(hidden):
 wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont")
 wandb.watch_called = False
 
-parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
-parser.add_argument('--lr_ac', type=float, default=0.001, metavar='lrac', help='actor learning rate')
-parser.add_argument('--lr_cr', type=float, default=0.000001, metavar='lrac',help='critic learning rate')
-args = parser.parse_args()
-
 config = wandb.config
 config.batch_size = 50
 config.episodes = 10000
-config.lr_ac = args.lr_ac
-config.lr_cr = args.lr_cr
+config.lr_ac = 0.0001
+config.lr_cr = 0.000001
 config.seed = 42
 config.gamma = 0.99
 eps = np.finfo(np.float32).eps.item()
@@ -170,7 +164,7 @@ for episode in tqdm(range(0, EPISODES)):
         "Value Loss": loss_cr.cpu().mean(),
         }, step=episode)
 
-    if episode % 500 == 0 and episode != 0:
+    if episode % 50 == 0 and episode != 0:
         visited_pos, visited_vel, acts, means, stds, vals = visualize()
         fig1 = plt.figure()
         plt.scatter(visited_pos, visited_vel, marker='.')

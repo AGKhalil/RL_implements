@@ -19,16 +19,15 @@ from pygifsicle import optimize
 
 from vpg import AC
 from policies import MLP_AC
-import argparse
 
 
 def visualize():
     done = False
     obs = env.reset()
     imgs, visited_pos, visited_vel, acts, means, stds, vals = [], [], [], [], [], [], []
-    #img = env.render('rgb_array')
+    img = env.render('rgb_array')
     while not done:
-    #    imgs.append(img)
+        imgs.append(img)
         visited_pos.append(obs[0])
         visited_vel.append(obs[1])
         act, _ = ac.get_action(obs)
@@ -38,10 +37,10 @@ def visualize():
         means.append(ac.action_mean.detach().item())
         stds.append(ac.action_std.detach().item())
         obs, rew, done, _ = env.step(act)
-        #img = env.render('rgb_array')
+        img = env.render('rgb_array')
 
-    #imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
-    #optimize('/tmp/current_gif.gif')
+    imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
+    optimize('/tmp/current_gif.gif')
 
     return visited_pos, visited_vel, acts, means, stds, vals
 
@@ -57,16 +56,11 @@ def net_layers(hidden):
 wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont")
 wandb.watch_called = False
 
-parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
-parser.add_argument('--lr_ac', type=float, default=0.001, metavar='lrac', help='actor learning rate')
-parser.add_argument('--lr_cr', type=float, default=0.000001, metavar='lrac',help='critic learning rate')
-args = parser.parse_args()
-
 config = wandb.config
 config.batch_size = 50
 config.episodes = 10000
-config.lr_ac = args.lr_ac
-config.lr_cr = args.lr_cr
+config.lr_ac = 0.0001
+config.lr_cr = 0.000001
 config.seed = 42
 config.gamma = 0.99
 eps = np.finfo(np.float32).eps.item()
@@ -198,7 +192,7 @@ for episode in tqdm(range(0, EPISODES)):
         plt.ylabel('stds')
         
         wandb.log({
-     #       "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
+            "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
             "visited_pos": visited_pos,
             "visited_vel": visited_vel,
             "actions": acts,
@@ -213,5 +207,4 @@ for episode in tqdm(range(0, EPISODES)):
         model_name = "model-" + str(episode) + ".h5"
         torch.save(ac.policy.state_dict(), model_name)
         wandb.save(model_name)
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        os.remove(dir_path + '/' + model_name)
+        os.remove(os.path.dirname("/home/oe18433/code_bases/RL_implements/") + '/' + model_name)
