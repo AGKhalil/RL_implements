@@ -19,9 +19,10 @@
     "args": [
         "--lr_ac=0.01"
     ],
-    "state": "running",
+    "state": "finished",
     "jobType": null,
     "mode": "run",
     "project": "pytorch-ac-mountaincarcont",
-    "heartbeatAt": "2020-03-24T22:12:47.051962"
+    "heartbeatAt": "2020-03-25T00:12:34.789370",
+    "exitcode": 0
 }
