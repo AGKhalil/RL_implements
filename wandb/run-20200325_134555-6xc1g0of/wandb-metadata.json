@@ -1,0 +1,30 @@
+{
+    "root": "/app",
+    "program": "main_ac_mcc.py",
+    "git": {
+        "remote": "git@github.com:AGKhalil/RL_implements.git",
+        "commit": "c24cf8833b53c1b80435263b9872256f948d2c72"
+    },
+    "email": null,
+    "codePath": "main_ac_mcc.py",
+    "startedAt": "2020-03-25T13:45:55.995221",
+    "host": "1b88d64d10ab",
+    "username": "user",
+    "executable": "/home/user/miniconda/envs/py36/bin/python",
+    "os": "Linux-5.3.0-40-generic-x86_64-with-debian-stretch-sid",
+    "python": "3.6.9",
+    "docker": "agkhalil/pls@sha256:e06def8bbc5226ceb0e0f28c5e0ccfecd1d38216b0d01eb5f49e6d26b7705ae2",
+    "gpu": "GeForce RTX 2080 Ti",
+    "gpu_count": 2,
+    "cpu_count": 20,
+    "cuda": "10.1.243",
+    "args": [
+        "--lr_ac=0.0005"
+    ],
+    "state": "finished",
+    "jobType": null,
+    "mode": "run",
+    "project": "pytorch-ac-mountaincarcont",
+    "heartbeatAt": "2020-03-25T14:52:19.504530",
+    "exitcode": 0
+}
