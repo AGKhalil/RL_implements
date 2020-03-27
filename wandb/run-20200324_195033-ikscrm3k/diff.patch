@@ -1,0 +1,52 @@
+diff --git a/__pycache__/policies.cpython-36.pyc b/__pycache__/policies.cpython-36.pyc
+index 540ecd4..de614a0 100644
+Binary files a/__pycache__/policies.cpython-36.pyc and b/__pycache__/policies.cpython-36.pyc differ
+diff --git a/__pycache__/vpg.cpython-36.pyc b/__pycache__/vpg.cpython-36.pyc
+index a0f4479..4ac0a66 100644
+Binary files a/__pycache__/vpg.cpython-36.pyc and b/__pycache__/vpg.cpython-36.pyc differ
+diff --git a/main_ac_mcc.py b/main_ac_mcc.py
+index 48a23da..e965a4d 100644
+--- a/main_ac_mcc.py
++++ b/main_ac_mcc.py
+@@ -25,9 +25,9 @@ def visualize():
+     done = False
+     obs = env.reset()
+     imgs, visited_pos, visited_vel, acts, means, stds, vals = [], [], [], [], [], [], []
+-    img = env.render('rgb_array')
++    #img = env.render('rgb_array')
+     while not done:
+-        imgs.append(img)
++    #    imgs.append(img)
+         visited_pos.append(obs[0])
+         visited_vel.append(obs[1])
+         act, _ = ac.get_action(obs)
+@@ -37,10 +37,10 @@ def visualize():
+         means.append(ac.action_mean.detach().item())
+         stds.append(ac.action_std.detach().item())
+         obs, rew, done, _ = env.step(act)
+-        img = env.render('rgb_array')
++        #img = env.render('rgb_array')
+ 
+-    imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
+-    optimize('/tmp/current_gif.gif')
++    #imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
++    #optimize('/tmp/current_gif.gif')
+ 
+     return visited_pos, visited_vel, acts, means, stds, vals
+ 
+@@ -192,7 +192,7 @@ for episode in tqdm(range(0, EPISODES)):
+         plt.ylabel('stds')
+         
+         wandb.log({
+-            "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
++     #       "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
+             "visited_pos": visited_pos,
+             "visited_vel": visited_vel,
+             "actions": acts,
+@@ -207,4 +207,4 @@ for episode in tqdm(range(0, EPISODES)):
+         model_name = "model-" + str(episode) + ".h5"
+         torch.save(ac.policy.state_dict(), model_name)
+         wandb.save(model_name)
+-        os.remove(os.path.dirname("/home/oe18433/code_bases/RL_implements/") + '/' + model_name)
+\ No newline at end of file
++        os.remove(os.path.dirname("/home/oe18433/code_bases/RL_implements/") + '/' + model_name)

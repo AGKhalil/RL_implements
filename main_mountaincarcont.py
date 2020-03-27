@@ -12,8 +12,10 @@ import logging
 logging.propagate = False 
 logging.getLogger().setLevel(logging.ERROR)
 
+import os
 import wandb
 import imageio
+from pygifsicle import optimize
 
 from vpg import VPG
 from policies import MLP
@@ -22,19 +24,22 @@ from policies import MLP
 def visualize():
     done = False
     obs = env.reset()
-    imgs, visited_pos, visited_vel = [], [], []
+    imgs, visited_pos, visited_vel, acts, means = [], [], [], [], []
     img = env.render('rgb_array')
     while not done:
         imgs.append(img)
         visited_pos.append(obs[0])
         visited_vel.append(obs[1])
         act, _ = vpg.get_action(obs)
+        acts.append(act[0])
+        means.append(round(vpg.current_policy.detach().item(), 4))
         obs, rew, done, _ = env.step(act)
         img = env.render('rgb_array')
 
     imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
+    optimize('/tmp/current_gif.gif')
 
-    return visited_pos, visited_vel
+    return visited_pos, visited_vel, acts, means
 
 def net_layers():
     if env_type == 'DISCRETE':
@@ -96,7 +101,7 @@ for episode in tqdm(range(0, EPISODES)):
     optimizer.zero_grad()
     discounted_rewards = torch.tensor(discounted_rewards).to(device)
     advantage = discounted_rewards #- discounted_rewards.mean()) / (discounted_rewards.std() + eps)
-    loss = [advantage[i] * log_soft[i] for i in range(len(advantage))]
+    loss = [-advantage[i] * log_soft[i] for i in range(len(advantage))]
     loss = torch.stack(loss)
     loss.to(device)
     loss.sum().backward()
@@ -107,20 +112,33 @@ for episode in tqdm(range(0, EPISODES)):
         }, step=episode)
 
     if episode % 500 == 0 and episode != 0:
-        visited_pos, visited_vel = visualize()
+        visited_pos, visited_vel, acts, means = visualize()
+        fig1 = plt.figure()
         plt.scatter(visited_pos, visited_vel, marker='.')
         plt.xlabel('position')
         plt.ylabel('velocity')
+        
+        fig2 = plt.figure()
+        plt.scatter([i for i in range(len(acts))], acts, marker='.')
+        plt.xlabel('steps')
+        plt.ylabel('actions')
+        
+        fig3 = plt.figure()
+        plt.scatter([i for i in range(len(means))], means, marker='.')
+        plt.xlabel('steps')
+        plt.ylabel('means')
+        
         wandb.log({
             "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
-            "visited states": plt,
             "visited_pos": visited_pos,
             "visited_vel": visited_vel,
+            "actions": acts,
+            "means": means,
+            "states": fig1,
+            "actions/step": fig2,
+            "means/step": fig3,
             })
-
-torch.save(vpg.state_dict(), "model.h5")
-wandb.save('model.h5')
-
-tot_per = []
-epsilon = 0
-
+        model_name = "model-" + str(episode) + ".h5"
+        torch.save(vpg.policy.state_dict(), model_name)
+        wandb.save(model_name)
+        os.remove(os.path.dirname("/home/oe18433/code_bases/RL_implements/") + '/' + model_name)

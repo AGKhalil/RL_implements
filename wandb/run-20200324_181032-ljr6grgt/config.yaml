@@ -1,0 +1,28 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.8.30
+    code_path: code/main.py
+    docker_digest: sha256:15cc3a47b15b60ff19b8f137c836f82d78616b85ab553ea87ef48d7562187377
+    docker_image: agkhalil/pls
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.6.9
+batch_size:
+  desc: null
+  value: 50
+episodes:
+  desc: null
+  value: 10000
+gamma:
+  desc: null
+  value: 0.99
+lr:
+  desc: null
+  value: 0.0005
+seed:
+  desc: null
+  value: 42
