@@ -210,8 +210,8 @@ for episode in tqdm(range(0, EPISODES)):
             "values/step": fig4,
             "stds/step": fig5,
             })
-        model_name = "model-" + str(episode) + ".h5"
-        torch.save(ac.policy.state_dict(), model_name)
-        wandb.save(model_name)
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        os.remove(dir_path + '/' + model_name)
+       # model_name = "model-" + str(episode) + ".h5"
+       # torch.save(ac.policy.state_dict(), model_name)
+       # wandb.save(model_name)
+       # dir_path = os.path.dirname(os.path.realpath(__file__))
+       # os.remove(dir_path + '/' + model_name)
