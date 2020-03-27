@@ -176,9 +176,9 @@ for episode in tqdm(range(0, EPISODES)):
             # "Sum of entropy over batch Q-values": current_qs_entropy
             }, step=episode)
 
-    if episode % 100 == 0 and episode != 0:
-        visualize()
-        wandb.log({"video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif")})
+#    if episode % 100 == 0 and episode != 0:
+ #       visualize()
+  #      wandb.log({"video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif")})
 
     if episode % update_target == 0:
         target.load_state_dict(value.state_dict())

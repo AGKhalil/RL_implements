@@ -61,7 +61,7 @@ torch.manual_seed(config.seed)
 learning_rate = config.lr
 batch_size = config.batch_size
 
-env = gym.make('MountainCarContinuous-v2')
+env = gym.make('MountainCarContinuous-v0')
 env_type = 'CONT'
 
 mlp = MLP(net_layers()).to(device)
