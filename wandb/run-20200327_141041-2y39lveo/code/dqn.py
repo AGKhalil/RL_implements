@@ -113,7 +113,7 @@ wandb.watch_called = False
 
 config = wandb.config
 config.batch_size = 64
-config.episodes = 50000
+config.episodes = 10000
 config.lr = 1e-4
 config.seed = 42
 config.epsilon = 1

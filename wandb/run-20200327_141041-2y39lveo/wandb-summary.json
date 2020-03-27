@@ -1,0 +1,1 @@
+{"graph_0": {"_type": "graph-file", "path": "media/graph/graph_0_summary_d09c6215.graph.json", "sha256": "d09c6215c5579767d4101fb426e18a72b7634f65cfd1a1025fa661dd982b8401", "size": 690}, "_timestamp": 1585318251.3569376, "Episode reward": 15.0, "_runtime": 9.806728839874268, "_step": 100, "Loss": 0.7504496574401855, "Epsilon": 0.9066044494080763}

@@ -50,7 +50,7 @@ wandb.watch_called = False
 
 config = wandb.config
 config.batch_size = 50
-config.episodes = 10000
+config.episodes = 30000
 config.lr = 0.0005
 config.seed = 42
 config.gamma = 0.99
@@ -61,7 +61,7 @@ torch.manual_seed(config.seed)
 learning_rate = config.lr
 batch_size = config.batch_size
 
-env = gym.make('LunarLanderContinuous-v2')
+env = gym.make('MountainCarContinuous-v2')
 env_type = 'CONT'
 
 mlp = MLP(net_layers()).to(device)
