@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "main_ac_mcc.py", line 236, in <module>
+    main()
+  File "main_ac_mcc.py", line 99, in main
+    mlp_ac = MLP_AC(net_layers([32, 16], env_type)).to(device)
+  File "main_ac_mcc.py", line 67, in net_layers
+    act_space = env.action_space.shape[0]
+NameError: name 'env' is not defined

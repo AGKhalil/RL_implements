@@ -21,8 +21,6 @@ from vpg import AC
 from policies import MLP_AC
 import argparse
 
-from bayes_opt import BayesianOptimization
-
 
 def visualize(env, ac, cr):
     done = False
@@ -49,12 +47,13 @@ def visualize(env, ac, cr):
 
 def evaluate(env, ac, cr):
 	eval_rew = []
-	for _ in tqdm(range(0, 100)):
+	for _ in range(100):
 	    done = False
 	    obs = env.reset()
 	    ep_reward = 0
 	    while not done:
 	        act, _ = ac.get_action(obs)
+	        acts.append(act[0])
 	        obs, rew, done, _ = env.step(act)
 	        ep_reward += rew
 	    eval_rew.append(ep_reward)
@@ -70,8 +69,8 @@ def net_layers(hidden, env_type, env):
     return [obs_space] + hidden + [act_space]
 
 
-def main(lr_ac, lr_cr):
-	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont", reinit=True)
+def main():
+	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont")
 	wandb.watch_called = False
 
 	parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
@@ -80,11 +79,10 @@ def main(lr_ac, lr_cr):
 	args = parser.parse_args()
 
 	config = wandb.config
-	# config.update({"lr_ac": lr_ac, "lr_cr": lr_cr}, allow_val_change=True)
 	config.batch_size = 50
-	config.episodes = 10
-	config.lr_ac = lr_ac
-	config.lr_cr = lr_cr
+	config.episodes = 1000
+	config.lr_ac = args.lr_ac
+	config.lr_cr = args.lr_cr
 	config.seed = 42
 	config.gamma = 0.99
 	eps = np.finfo(np.float32).eps.item()
@@ -233,22 +231,8 @@ def main(lr_ac, lr_cr):
 	       # wandb.save(model_name)
 	       # dir_path = os.path.dirname(os.path.realpath(__file__))
 	       # os.remove(dir_path + '/' + model_name)
-	wandb.join()
 
 	return evaluate(env, ac, cr)
 
 if __name__ == "__main__":
-	pbounds = {'lr_ac': (0.00001, 0.9), 'lr_cr': (0.00001, 0.9)}
-
-	optimizer = BayesianOptimization(
-	    f=main,
-	    pbounds=pbounds,
-	    random_state=1,
-	)
-
-	optimizer.maximize(
-	    init_points=5,
-	    n_iter=10,
-	)
-
-	print(optimizer.max)
+	main()

@@ -49,7 +49,7 @@ def visualize(env, ac, cr):
 
 def evaluate(env, ac, cr):
 	eval_rew = []
-	for _ in tqdm(range(0, 100)):
+	for _ in range(100):
 	    done = False
 	    obs = env.reset()
 	    ep_reward = 0
@@ -71,7 +71,7 @@ def net_layers(hidden, env_type, env):
 
 
 def main(lr_ac, lr_cr):
-	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont", reinit=True)
+	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont")
 	wandb.watch_called = False
 
 	parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
@@ -80,7 +80,6 @@ def main(lr_ac, lr_cr):
 	args = parser.parse_args()
 
 	config = wandb.config
-	# config.update({"lr_ac": lr_ac, "lr_cr": lr_cr}, allow_val_change=True)
 	config.batch_size = 50
 	config.episodes = 10
 	config.lr_ac = lr_ac
@@ -233,7 +232,6 @@ def main(lr_ac, lr_cr):
 	       # wandb.save(model_name)
 	       # dir_path = os.path.dirname(os.path.realpath(__file__))
 	       # os.remove(dir_path + '/' + model_name)
-	wandb.join()
 
 	return evaluate(env, ac, cr)
 

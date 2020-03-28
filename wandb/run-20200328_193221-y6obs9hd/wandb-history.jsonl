@@ -1,0 +1,10 @@
+{"Episode reward": -99.16898294200749, "Episode length": 999, "Policy Loss": -0.13350465893745422, "Value Loss": 0.028464416041970253, "_runtime": 791.8779842853546, "_timestamp": 1585423957.8246133, "_step": 0}
+{"Episode reward": -92.35028789881316, "Episode length": 999, "Policy Loss": 0.09423220902681351, "Value Loss": 6.096646785736084, "_runtime": 793.5550396442413, "_timestamp": 1585423959.5016687, "_step": 1}
+{"Episode reward": -105.62162374104958, "Episode length": 999, "Policy Loss": -0.19855202734470367, "Value Loss": 6.742424964904785, "_runtime": 795.4309818744659, "_timestamp": 1585423961.377611, "_step": 2}
+{"Episode reward": -101.52453034333325, "Episode length": 999, "Policy Loss": -0.679240345954895, "Value Loss": 32.54660415649414, "_runtime": 797.022292137146, "_timestamp": 1585423962.9689212, "_step": 3}
+{"Episode reward": -107.57941030829772, "Episode length": 999, "Policy Loss": -0.21000288426876068, "Value Loss": 0.641542375087738, "_runtime": 798.7705972194672, "_timestamp": 1585423964.7172263, "_step": 4}
+{"Episode reward": -106.16626171610189, "Episode length": 999, "Policy Loss": 0.04525342211127281, "Value Loss": 11.183024406433105, "_runtime": 800.4310393333435, "_timestamp": 1585423966.3776684, "_step": 5}
+{"Episode reward": -108.24332099890441, "Episode length": 999, "Policy Loss": 0.040377140045166016, "Value Loss": 1.3214726448059082, "_runtime": 802.117840051651, "_timestamp": 1585423968.064469, "_step": 6}
+{"Episode reward": -105.22808520272923, "Episode length": 999, "Policy Loss": 0.031354695558547974, "Value Loss": 0.10301521420478821, "_runtime": 803.8009088039398, "_timestamp": 1585423969.7475379, "_step": 7}
+{"Episode reward": -110.64333052342549, "Episode length": 999, "Policy Loss": 0.036948833614587784, "Value Loss": 3.130695343017578, "_runtime": 805.6114630699158, "_timestamp": 1585423971.558092, "_step": 8}
+{"Episode reward": -112.82828096877952, "Episode length": 999, "Policy Loss": -0.0781867653131485, "Value Loss": 0.7099414467811584, "_runtime": 805.6114630699158, "_timestamp": 1585423971.558092, "_step": 9}

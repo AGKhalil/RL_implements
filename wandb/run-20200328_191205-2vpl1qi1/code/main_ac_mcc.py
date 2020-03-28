@@ -71,7 +71,7 @@ def net_layers(hidden, env_type, env):
 
 
 def main(lr_ac, lr_cr):
-	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont", reinit=True)
+	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont")
 	wandb.watch_called = False
 
 	parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
@@ -80,11 +80,11 @@ def main(lr_ac, lr_cr):
 	args = parser.parse_args()
 
 	config = wandb.config
-	# config.update({"lr_ac": lr_ac, "lr_cr": lr_cr}, allow_val_change=True)
+	config.update({"lr_ac": lr_ac, "lr_cr": lr_cr}, allow_val_change=True)
 	config.batch_size = 50
 	config.episodes = 10
-	config.lr_ac = lr_ac
-	config.lr_cr = lr_cr
+	# config.lr_ac = lr_ac
+	# config.lr_cr = lr_cr
 	config.seed = 42
 	config.gamma = 0.99
 	eps = np.finfo(np.float32).eps.item()
@@ -233,7 +233,6 @@ def main(lr_ac, lr_cr):
 	       # wandb.save(model_name)
 	       # dir_path = os.path.dirname(os.path.realpath(__file__))
 	       # os.remove(dir_path + '/' + model_name)
-	wandb.join()
 
 	return evaluate(env, ac, cr)
 
