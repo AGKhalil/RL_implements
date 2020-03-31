@@ -1,0 +1,593 @@
+diff --git a/__pycache__/policies.cpython-36.pyc b/__pycache__/policies.cpython-36.pyc
+index 175b219..a85e070 100644
+Binary files a/__pycache__/policies.cpython-36.pyc and b/__pycache__/policies.cpython-36.pyc differ
+diff --git a/__pycache__/vpg.cpython-36.pyc b/__pycache__/vpg.cpython-36.pyc
+index 6bbeb71..801a326 100644
+Binary files a/__pycache__/vpg.cpython-36.pyc and b/__pycache__/vpg.cpython-36.pyc differ
+diff --git a/main_ac_mcc.py b/main_ac_mcc.py
+index 9bc5e75..e3438c6 100644
+--- a/main_ac_mcc.py
++++ b/main_ac_mcc.py
+@@ -1,5 +1,6 @@
+ import numpy as np
+ from tqdm import tqdm
++import math
+ import gym
+ import matplotlib.pyplot as plt
+ 
+@@ -21,6 +22,7 @@ from vpg import AC
+ from policies import MLP_AC
+ import argparse
+ 
++from sklearn import preprocessing
+ from bayes_opt import BayesianOptimization
+ 
+ 
+@@ -48,18 +50,18 @@ def visualize(env, ac, cr):
+     return visited_pos, visited_vel, acts, means, stds, vals
+ 
+ def evaluate(env, ac, cr):
+-	eval_rew = []
+-	for _ in tqdm(range(0, 100)):
+-	    done = False
+-	    obs = env.reset()
+-	    ep_reward = 0
+-	    while not done:
+-	        act, _ = ac.get_action(obs)
+-	        obs, rew, done, _ = env.step(act)
+-	        ep_reward += rew
+-	    eval_rew.append(ep_reward)
+-
+-	return np.mean(eval_rew)
++    eval_rew = []
++    for _ in tqdm(range(0, 100)):
++        done = False
++        obs = env.reset()
++        ep_reward = 0
++        while not done:
++            act, _ = ac.get_action(obs)
++            obs, rew, done, _ = env.step(act)
++            ep_reward += rew
++        eval_rew.append(ep_reward)
++
++    return np.sum(eval_rew)
+ 
+ def net_layers(hidden, env_type, env):
+     if env_type == 'DISCRETE':
+@@ -69,186 +71,207 @@ def net_layers(hidden, env_type, env):
+     obs_space = env.observation_space.shape[0]
+     return [obs_space] + hidden + [act_space]
+ 
+-
+-def main(lr_ac, lr_cr):
+-	wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont", reinit=True)
+-	wandb.watch_called = False
+-
+-	parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
+-	parser.add_argument('--lr_ac', type=float, default=0.001, metavar='lrac', help='actor learning rate')
+-	parser.add_argument('--lr_cr', type=float, default=0.000001, metavar='lrac',help='critic learning rate')
+-	args = parser.parse_args()
+-
+-	config = wandb.config
+-	# config.update({"lr_ac": lr_ac, "lr_cr": lr_cr}, allow_val_change=True)
+-	config.batch_size = 50
+-	config.episodes = 10
+-	config.lr_ac = lr_ac
+-	config.lr_cr = lr_cr
+-	config.seed = 42
+-	config.gamma = 0.99
+-	eps = np.finfo(np.float32).eps.item()
+-
+-	device = torch.device('cpu')
+-	torch.manual_seed(config.seed)
+-	lr_ac = config.lr_ac
+-	lr_cr = config.lr_cr
+-	batch_size = config.batch_size
+-
+-	env = gym.make('MountainCarContinuous-v0')
+-	env_type = 'CONT'
+-
+-	mlp_ac = MLP_AC(net_layers([32, 16], env_type, env)).to(device)
+-	mlp_cr = MLP_AC(net_layers([64, 32], env_type, env)).to(device)
+-	ac = AC(mlp_ac, env, device, env_type)
+-	cr = AC(mlp_cr, env, device, env_type)
+-	optimizer_cr = optim.Adam(cr.policy.parameters(), lr=lr_cr)
+-	optimizer_ac = optim.Adam(ac.policy.parameters(), lr=lr_ac)
+-	loss_fn = torch.nn.MSELoss()
+-
+-	EPISODES = config.episodes
+-	gamma = config.gamma
+-
+-	wandb.watch(ac.policy, log="all")
+-
+-	visited_pos, visited_vel = [], []
+-
+-	for episode in tqdm(range(0, EPISODES)):
+-	    rewards = []
+-	    log_probs = []
+-	    values_list = []
+-	    next_values_list = []
+-	    obs = env.reset()
+-	    done = False
+-	    ep_reward = 0
+-	    step = 0
+-	    while not done:
+-	        action, log_prob = ac.get_action(obs)
+-	        value = cr.get_action(obs, critic=True)
+-	        new_obs, rew, done, _ = env.step(action)
+-	        next_value = cr.get_action(new_obs, critic=True)
+-	        ep_reward += rew
+-	        rewards.append(rew)
+-	        log_probs.append(log_prob)
+-	        values_list.append(value)
+-	        next_values_list.append(next_value)
+-	        step += 1
+-	        obs = new_obs
+-
+-	    rewards_size = len(rewards)
+-	    gammas = [np.power(gamma, i) for i in range(rewards_size)]
+-	    discounted_rewards = [np.sum(np.multiply(gammas[:rewards_size-i], rewards[i:])) for i in range(rewards_size)]
+-	    discounted_rewards = torch.tensor(discounted_rewards).to(device)
+-	    returns = [rewards[i] + gamma * next_values_list[i] for i in reversed(range(rewards_size))]
+-	    # returns = torch.tensor(returns).to(device)
+-	    # values_list = torch.tensor(values_list).to(device)
+-	    # next_values_list = torch.tensor(next_values_list).to(device)
+-
+-	    # target = rew + gamma * next_value.detach()
+-	    td = np.subtract(returns, values_list)
+-	    values_list = torch.stack(values_list)
+-	    returns = torch.stack(returns)
+-	    loss_cr = loss_fn(values_list, returns)
+-	    loss_ac = [-td[i].detach() * log_probs[i] for i in range(len(td))]
+-	    loss_ac = torch.stack(loss_ac)
+-	    # loss_ac.to(device)
+-	    # loss_cr.to(device)
+-	    
+-	    optimizer_ac.zero_grad()
+-	    optimizer_cr.zero_grad()
+-
+-	    # loss = loss_cr + loss_ac
+-	    # print(action, loss_ac)
+-	    
+-	    loss_ac.sum().backward()
+-	    loss_cr.backward()
+-	    optimizer_cr.step()
+-	    optimizer_ac.step()
+-
+-
+-	    # for i in list(ac.policy.fc[0].parameters()):
+-	    #     weird_sum += i.detach().sum().item()
+-	    # print(weird_sum)
+-
+-	    # rewards_size = len(rewards)
+-	    # gammas = [np.power(gamma, i) for i in range(rewards_size)]
+-	    # discounted_rewards = [np.sum(np.multiply(gammas[:rewards_size-i], rewards[i:])) for i in range(rewards_size)]
+-	    # optimizer.zero_grad()
+-	    # discounted_rewards = torch.tensor(discounted_rewards).to(device)
+-	    # advantage = discounted_rewards #- discounted_rewards.mean()) / (discounted_rewards.std() + eps)
+-	    # loss = [-advantage[i] * log_probs[i] for i in range(len(advantage))]
+-	    # loss = torch.stack(loss)
+-	    # loss.to(device)
+-	    # loss.sum().backward()
+-	    # optimizer.step()
+-	    wandb.log({
+-	        "Episode reward": ep_reward,
+-	        "Episode length": step,
+-	        "Policy Loss": loss_ac.cpu().mean(),
+-	        "Value Loss": loss_cr.cpu().mean(),
+-	        }, step=episode)
+-
+-	    if episode % 500 == 0 and episode != 0:
+-	        visited_pos, visited_vel, acts, means, stds, vals = visualize(env, ac, cr)
+-	        fig1 = plt.figure()
+-	        plt.scatter(visited_pos, visited_vel, marker='.')
+-	        plt.xlabel('position')
+-	        plt.ylabel('velocity')
+-	        
+-	        fig2 = plt.figure()
+-	        plt.scatter([i for i in range(len(acts))], acts, marker='.')
+-	        plt.xlabel('steps')
+-	        plt.ylabel('actions')
+-	        
+-	        fig3 = plt.figure()
+-	        plt.scatter([i for i in range(len(means))], means, marker='.')
+-	        plt.xlabel('steps')
+-	        plt.ylabel('means')
+-
+-	        fig4 = plt.figure()
+-	        plt.scatter([i for i in range(len(vals))], vals, marker='.')
+-	        plt.xlabel('steps')
+-	        plt.ylabel('values')
+-
+-	        fig5 = plt.figure()
+-	        plt.scatter([i for i in range(len(stds))], stds, marker='.')
+-	        plt.xlabel('steps')
+-	        plt.ylabel('stds')
+-	        
+-	        wandb.log({
+-	     #       "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
+-	            "visited_pos": visited_pos,
+-	            "visited_vel": visited_vel,
+-	            "actions": acts,
+-	            "means": means,
+-	            "values": vals,
+-	            "states": fig1,
+-	            "actions/step": fig2,
+-	            "means/step": fig3,
+-	            "values/step": fig4,
+-	            "stds/step": fig5,
+-	            })
+-	       # model_name = "model-" + str(episode) + ".h5"
+-	       # torch.save(ac.policy.state_dict(), model_name)
+-	       # wandb.save(model_name)
+-	       # dir_path = os.path.dirname(os.path.realpath(__file__))
+-	       # os.remove(dir_path + '/' + model_name)
+-	wandb.join()
+-
+-	return evaluate(env, ac, cr)
++def scale_state(obs, scaler):
++    return scaler.transform([obs])
++
++def main(lr_ac=0.4979, lr_cr=0.6318):
++    wandb.init(entity="agkhalil", project="pytorch-ac-mountaincarcont-bayesopt5", reinit=True)
++    wandb.watch_called = False
++
++    parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
++    parser.add_argument('--lr_ac', type=float, default=0.1321, metavar='lrac', help='actor learning rate')
++    parser.add_argument('--lr_cr', type=float, default=0.08311, metavar='lrac',help='critic learning rate')
++    args = parser.parse_args()
++
++    config = wandb.config
++    # config.update({"lr_ac": lr_ac, "lr_cr": lr_cr}, allow_val_change=True)
++    config.batch_size = 50
++    config.episodes = 500
++    config.lr_ac = lr_ac
++    config.lr_cr = lr_cr
++    config.seed = 42
++    config.gamma = 0.99
++    eps = np.finfo(np.float32).eps.item()
++
++    device = torch.device('cpu')
++    #torch.manual_seed(config.seed)
++    lr_ac = config.lr_ac
++    lr_cr = config.lr_cr
++    batch_size = config.batch_size
++
++    env = gym.make('MountainCarContinuous-v0')
++    state_space_samples = np.array([env.observation_space.sample() for x in range(1000)])
++    scaler = preprocessing.StandardScaler()
++    scaler.fit(state_space_samples)
++    env_type = 'CONT'
++
++    mlp_ac = MLP_AC(net_layers([32, 16], env_type, env)).to(device)
++    mlp_cr = MLP_AC(net_layers([64, 32], env_type, env)).to(device)
++    ac = AC(mlp_ac, env, device, env_type)
++    cr = AC(mlp_cr, env, device, env_type)
++    optimizer_cr = optim.Adam(cr.policy.parameters(), lr=lr_cr)
++    optimizer_ac = optim.Adam(ac.policy.parameters(), lr=lr_ac)
++    loss_fn = torch.nn.MSELoss()
++
++    EPISODES = config.episodes
++    gamma = config.gamma
++
++    wandb.watch(ac.policy, log="all")
++
++    visited_pos, visited_vel = [], []
++
++    for episode in tqdm(range(0, EPISODES)):
++        rewards = []
++        log_probs = []
++        values_list = []
++        next_values_list = []
++        acts_list = []
++        my_rew = []
++        obs = env.reset()
++        done = False
++        ep_reward = 0
++        step = 0
++        while not done:
++            action, log_prob = ac.get_action(scale_state(obs, scaler))
++            acts_list.append(action)
++            fuck = 0
++            if done and step < 999:
++               fuck = 100
++            fuck -= math.pow(action[0], 2) * 0.1
++            my_rew.append(fuck)
++            value = cr.get_action(scale_state(obs, scaler), critic=True)
++            new_obs, rew, done, _ = env.step(action)
++            #print('ac, log, rew', action, log_prob, rew)
++            next_value = cr.get_action(scale_state(new_obs, scaler), critic=True)
++            ep_reward += rew
++            rewards.append(rew)
++            log_probs.append(log_prob)
++            values_list.append(value)
++            next_values_list.append(next_value)
++            step += 1
++            obs = new_obs
++
++        if np.sum(my_rew) < -1000:
++            print(np.sum(my_rew))
++            print(acts_list)
++
++        rewards_size = len(rewards)
++        gammas = [np.power(gamma, i) for i in range(rewards_size)]
++        discounted_rewards = [np.sum(np.multiply(gammas[:rewards_size-i], rewards[i:])) for i in range(rewards_size)]
++        discounted_rewards = torch.tensor(discounted_rewards).to(device)
++        returns = [rewards[i] + gamma * next_values_list[i] for i in reversed(range(rewards_size))]
++        # returns = torch.tensor(returns).to(device)
++        # values_list = torch.tensor(values_list).to(device)
++        # next_values_list = torch.tensor(next_values_list).to(device)
++
++        # target = rew + gamma * next_value.detach()
++        td = np.subtract(returns, values_list)
++        values_list = torch.stack(values_list)
++        returns = torch.stack(returns)
++        loss_cr = loss_fn(values_list, returns)
++        loss_ac = [-td[i].detach() * log_probs[i] for i in range(len(td))]
++        loss_ac = torch.stack(loss_ac)
++        # loss_ac.to(device)
++        # loss_cr.to(device)
++        
++        optimizer_ac.zero_grad()
++        optimizer_cr.zero_grad()
++
++        # loss = loss_cr + loss_ac
++        # print(action, loss_ac)
++        
++        loss_ac.sum().backward()
++        loss_cr.backward()
++        optimizer_cr.step()
++        optimizer_ac.step()
++
++
++        # for i in list(ac.policy.fc[0].parameters()):
++        #     weird_sum += i.detach().sum().item()
++        # print(weird_sum)
++
++        # rewards_size = len(rewards)
++        # gammas = [np.power(gamma, i) for i in range(rewards_size)]
++        # discounted_rewards = [np.sum(np.multiply(gammas[:rewards_size-i], rewards[i:])) for i in range(rewards_size)]
++        # optimizer.zero_grad()
++        # discounted_rewards = torch.tensor(discounted_rewards).to(device)
++        # advantage = discounted_rewards #- discounted_rewards.mean()) / (discounted_rewards.std() + eps)
++        # loss = [-advantage[i] * log_probs[i] for i in range(len(advantage))]
++        # loss = torch.stack(loss)
++        # loss.to(device)
++        # loss.sum().backward()
++        # optimizer.step()
++        wandb.log({
++            "Episode reward": ep_reward,
++            "Episode length": step,
++            "Policy Loss": loss_ac.cpu().mean(),
++            "Value Loss": loss_cr.cpu().mean(),
++            }, step=episode)
++
++        if episode % 500 == 0 and episode != 0:
++            visited_pos, visited_vel, acts, means, stds, vals = visualize(env, ac, cr)
++            fig1 = plt.figure()
++            plt.scatter(visited_pos, visited_vel, marker='.')
++            plt.xlabel('position')
++            plt.ylabel('velocity')
++            
++            fig2 = plt.figure()
++            plt.scatter([i for i in range(len(acts))], acts, marker='.')
++            plt.xlabel('steps')
++            plt.ylabel('actions')
++            
++            fig3 = plt.figure()
++            plt.scatter([i for i in range(len(means))], means, marker='.')
++            plt.xlabel('steps')
++            plt.ylabel('means')
++
++            fig4 = plt.figure()
++            plt.scatter([i for i in range(len(vals))], vals, marker='.')
++            plt.xlabel('steps')
++            plt.ylabel('values')
++
++            fig5 = plt.figure()
++            plt.scatter([i for i in range(len(stds))], stds, marker='.')
++            plt.xlabel('steps')
++            plt.ylabel('stds')
++            
++            wandb.log({
++         #       "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif"),
++                "visited_pos": visited_pos,
++                "visited_vel": visited_vel,
++                "actions": acts,
++                "means": means,
++                "values": vals,
++                "states": fig1,
++                "actions/step": fig2,
++                "means/step": fig3,
++                "values/step": fig4,
++                "stds/step": fig5,
++                })
++           # model_name = "model-" + str(episode) + ".h5"
++           # torch.save(ac.policy.state_dict(), model_name)
++           # wandb.save(model_name)
++           # dir_path = os.path.dirname(os.path.realpath(__file__))
++           # os.remove(dir_path + '/' + model_name)
++    wandb.join()
++
++    return evaluate(env, ac, cr)
+ 
+ if __name__ == "__main__":
+-	pbounds = {'lr_ac': (0.00001, 0.9), 'lr_cr': (0.00001, 0.9)}
++    for _ in range(5):
++        main()
++
++    pbounds = {'lr_ac': (0.00001, 0.9), 'lr_cr': (0.00001, 0.9)}
+ 
+-	optimizer = BayesianOptimization(
+-	    f=main,
+-	    pbounds=pbounds,
+-	    random_state=1,
+-	)
++    optimizer = BayesianOptimization(
++        f=main,
++        pbounds=pbounds,
++        random_state=1,
++    )
+ 
+-	optimizer.maximize(
+-	    init_points=5,
+-	    n_iter=10,
+-	)
++    optimizer.maximize(
++        init_points=5,
++        n_iter=20,
++    )
+ 
+-	print(optimizer.max)
++    print(optimizer.max)
+diff --git a/policies.py b/policies.py
+index f25ddbe..778f10c 100644
+--- a/policies.py
++++ b/policies.py
+@@ -63,5 +63,5 @@ class MLP_AC(nn.Module):
+         if critic:
+             return self.state_value(x)
+         else:
+-            return torch.tanh(self.fc[self.layers_n](x)), F.softplus(self.fc[self.layers_n](x))
++            return self.fc[self.layers_n](x), F.softplus(self.fc[self.layers_n](x))
+ 
+diff --git a/vpg.py b/vpg.py
+index 84ee0f4..81ae26a 100644
+--- a/vpg.py
++++ b/vpg.py
+@@ -16,7 +16,7 @@ import torch.nn.functional as F
+ import torch.optim as optim
+ 
+ from scipy.special import softmax
+-
++from sklearn import preprocessing
+ import logging
+ logging.propagate = False 
+ logging.getLogger().setLevel(logging.ERROR)
+@@ -70,12 +70,13 @@ class AC():
+             return self.act, F.log_softmax(self.action_mean).squeeze(0)[self.act]
+         else:
+             self.action_mean, self.action_std = self.get_current_policy(obs)
+-            self.dist = torch.distributions.normal.Normal(self.action_mean, 1)
++            #print('mean, std', self.action_mean, self.action_std)
++            self.dist = torch.distributions.normal.Normal(self.action_mean, self.action_std + 1e-5)
+             self.act = self.dist.sample().squeeze()
+-            if self.act.nelement() == 1:                
+-                return [self.act.item()], self.dist.log_prob(self.act)
++            if self.act.nelement() == 1:
++                return [torch.clamp(self.act, self.env.action_space.low[0], self.env.action_space.high[0]).item()], self.dist.log_prob(self.act)
+             else:
+                 return self.act.numpy(), self.dist.log_prob(self.act)
+ 
+     def get_current_policy(self, obs, critic=False):
+-        return self.policy.forward(torch.from_numpy(obs).float().unsqueeze(0).to(self.device), critic)
+\ No newline at end of file
++        return self.policy.forward(torch.from_numpy(obs).float().unsqueeze(0).to(self.device), critic)
+diff --git a/wandb/debug.log b/wandb/debug.log
+index f9c4e10..c795642 100644
+--- a/wandb/debug.log
++++ b/wandb/debug.log
+@@ -1,87 +1,16 @@
+-2020-03-28 19:39:56,059 DEBUG   MainThread:941 [wandb_config.py:_load_defaults():122] no defaults not found in config-defaults.yaml
+-2020-03-28 19:39:56,079 DEBUG   MainThread:941 [meta.py:setup():97] code probe starting
+-2020-03-28 19:39:56,090 DEBUG   MainThread:941 [meta.py:_setup_code_git():49] probe for git information
+-2020-03-28 19:39:56,215 DEBUG   MainThread:941 [meta.py:_setup_code_program():58] save program starting
+-2020-03-28 19:39:56,215 DEBUG   MainThread:941 [meta.py:_setup_code_program():60] save program starting: /app/./main_ac_mcc.py
+-2020-03-28 19:39:56,218 DEBUG   MainThread:941 [meta.py:_setup_code_program():65] save program saved: /app/wandb/run-20200328_193955-2jm5x7hd/code/main_ac_mcc.py
+-2020-03-28 19:39:56,219 DEBUG   MainThread:941 [meta.py:_setup_code_program():67] save program
+-2020-03-28 19:39:56,223 DEBUG   MainThread:941 [meta.py:setup():119] code probe done
+-2020-03-28 19:39:56,233 DEBUG   MainThread:941 [run_manager.py:__init__():541] Initialized sync for pytorch-ac-mountaincarcont/2jm5x7hd
+-2020-03-28 19:39:56,243 INFO    MainThread:941 [run_manager.py:wrap_existing_process():1144] wrapping existing process 358
+-2020-03-28 19:39:56,243 WARNING MainThread:941 [io_wrap.py:register():104] SIGWINCH handler was not None: <Handlers.SIG_DFL: 0>
+-2020-03-28 19:39:56,337 INFO    MainThread:941 [run_manager.py:init_run():924] system metrics and metadata threads started
+-2020-03-28 19:39:56,339 INFO    MainThread:941 [run_manager.py:init_run():963] upserting run before process can begin, waiting at most 10 seconds
+-2020-03-28 19:39:56,648 INFO    Thread-14 :941 [run_manager.py:_upsert_run():1048] saving patches
+-2020-03-28 19:39:57,093 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/config.yaml
+-2020-03-28 19:39:58,958 INFO    Thread-14 :941 [run_manager.py:_upsert_run():1052] saving pip packages
+-2020-03-28 19:39:58,961 INFO    Thread-14 :941 [run_manager.py:_upsert_run():1054] initializing streaming files api
+-2020-03-28 19:39:58,962 INFO    Thread-14 :941 [run_manager.py:_upsert_run():1061] unblocking file change observer, beginning sync with W&B servers
+-2020-03-28 19:39:58,963 INFO    MainThread:941 [run_manager.py:wrap_existing_process():1161] informing user process we are ready to proceed
+-2020-03-28 19:39:58,974 INFO    MainThread:941 [run_manager.py:_sync_etc():1268] entering loop for messages from user process
+-2020-03-28 19:39:59,196 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:39:59,198 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-metadata.json
+-2020-03-28 19:39:59,202 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/code/main_ac_mcc.py
+-2020-03-28 19:39:59,208 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/code
+-2020-03-28 19:39:59,209 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/diff.patch
+-2020-03-28 19:39:59,213 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/diff.patch
+-2020-03-28 19:39:59,216 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/config.yaml
+-2020-03-28 19:39:59,220 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:39:59,222 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/requirements.txt
+-2020-03-28 19:40:01,156 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/media/graph/graph_0_summary_84278387.graph.json
+-2020-03-28 19:40:01,159 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:01,172 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/media
+-2020-03-28 19:40:01,173 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/media/graph
+-2020-03-28 19:40:02,182 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:03,197 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:04,214 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:05,230 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:06,248 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:07,261 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:08,277 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:09,291 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:10,344 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:11,361 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:12,379 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-metadata.json
+-2020-03-28 19:40:13,394 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:13,398 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:13,404 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:14,411 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:15,424 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:15,429 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:16,438 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:16,439 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:16,443 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:18,467 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:18,469 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:18,473 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:19,489 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:19,491 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:19,497 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:21,519 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:21,521 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:21,528 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:23,549 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:23,550 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:23,554 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:24,569 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:24,571 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:24,576 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:24,578 INFO    Thread-3  :941 [run_manager.py:_on_file_created():677] file/dir created: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-events.jsonl
+-2020-03-28 19:40:26,601 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-history.jsonl
+-2020-03-28 19:40:26,603 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-summary.json
+-2020-03-28 19:40:26,607 INFO    Thread-3  :941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/output.log
+-2020-03-28 19:40:26,980 INFO    MainThread:941 [run_manager.py:_sync_etc():1291] received message from user process: {"exitcode": 0}
+-2020-03-28 19:40:26,984 INFO    MainThread:941 [run_manager.py:_sync_etc():1377] closing log streams and sending exitcode to W&B
+-2020-03-28 19:40:26,986 INFO    MainThread:941 [run_manager.py:shutdown():1068] shutting down system stats and metadata service
+-2020-03-28 19:40:27,358 INFO    MainThread:941 [run_manager.py:shutdown():1080] stopping streaming files and file change observer
+-2020-03-28 19:40:27,630 INFO    MainThread:941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-events.jsonl
+-2020-03-28 19:40:27,632 INFO    MainThread:941 [run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-metadata.json
+-2020-03-28 19:40:30,729 INFO    MainThread:941 [run_manager.py:_sync_etc():1396] rendering summary
+-2020-03-28 19:40:30,734 INFO    MainThread:941 [run_manager.py:_sync_etc():1429] syncing files to cloud storage
+-2020-03-28 19:40:32,505 INFO    MainThread:941 [run_manager.py:_sync_etc():1444] syncing complete: https://app.wandb.ai/agkhalil/pytorch-ac-mountaincarcont/runs/2jm5x7hd
+-ge observer
+-2020-03-28 19:40:27,630 INFO    MainThread:941 [2jm5x7hd:run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-events.jsonl
+-2020-03-28 19:40:27,632 INFO    MainThread:941 [2jm5x7hd:run_manager.py:_on_file_modified():688] file/dir modified: /app/wandb/run-20200328_193955-2jm5x7hd/wandb-metadata.json
+-2020-03-28 19:40:30,729 INFO    MainThread:941 [2jm5x7hd:run_manager.py:_sync_etc():1396] rendering summary
+-2020-03-28 19:40:30,734 INFO    MainThread:941 [2jm5x7hd:run_manager.py:_sync_etc():1429] syncing files to cloud storage
+-2020-03-28 19:40:32,505 INFO    MainThread:941 [2jm5x7hd:run_manager.py:_sync_etc():1444] syncing complete: https://app.wandb.ai/agkhalil/pytorch-ac-mountaincarcont/runs/2jm5x7hd
++2020-03-31 00:16:35,772 DEBUG   MainThread:8590 [wandb_config.py:_load_defaults():122] no defaults not found in config-defaults.yaml
++2020-03-31 00:16:35,777 DEBUG   MainThread:8590 [meta.py:setup():97] code probe starting
++2020-03-31 00:16:35,778 DEBUG   MainThread:8590 [meta.py:_setup_code_git():49] probe for git information
++2020-03-31 00:16:35,785 DEBUG   MainThread:8590 [meta.py:_setup_code_program():58] save program starting
++2020-03-31 00:16:35,785 DEBUG   MainThread:8590 [meta.py:_setup_code_program():60] save program starting: /app/./main_ac_mcc.py
++2020-03-31 00:16:35,785 DEBUG   MainThread:8590 [meta.py:_setup_code_program():65] save program saved: /app/wandb/run-20200331_001635-1dlxs26s/code/main_ac_mcc.py
++2020-03-31 00:16:35,785 DEBUG   MainThread:8590 [meta.py:_setup_code_program():67] save program
++2020-03-31 00:16:35,785 DEBUG   MainThread:8590 [meta.py:setup():119] code probe done
++2020-03-31 00:16:35,794 DEBUG   MainThread:8590 [run_manager.py:__init__():545] Initialized sync for pytorch-ac-mountaincarcont-bayesopt5/1dlxs26s
++2020-03-31 00:16:35,796 INFO    MainThread:8590 [run_manager.py:wrap_existing_process():1148] wrapping existing process 7647
++2020-03-31 00:16:35,797 WARNING MainThread:8590 [io_wrap.py:register():104] SIGWINCH handler was not None: <Handlers.SIG_DFL: 0>
++2020-03-31 00:16:35,910 INFO    MainThread:8590 [run_manager.py:init_run():928] system metrics and metadata threads started
++2020-03-31 00:16:35,910 INFO    MainThread:8590 [run_manager.py:init_run():967] upserting run before process can begin, waiting at most 10 seconds
++2020-03-31 00:16:36,165 INFO    Thread-14 :8590 [run_manager.py:_upsert_run():1052] saving patches
++ting run before process can begin, waiting at most 10 seconds
++2020-03-31 00:16:36,165 INFO    Thread-14 :8590 [1dlxs26s:run_manager.py:_upsert_run():1052] saving patches

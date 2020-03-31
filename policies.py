@@ -63,5 +63,5 @@ class MLP_AC(nn.Module):
         if critic:
             return self.state_value(x)
         else:
-            return torch.tanh(self.fc[self.layers_n](x)), F.softplus(self.fc[self.layers_n](x))
+            return self.fc[self.layers_n](x), F.softplus(self.fc[self.layers_n](x))
 

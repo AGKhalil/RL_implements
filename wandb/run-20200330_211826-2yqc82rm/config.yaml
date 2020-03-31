@@ -1,0 +1,31 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.8.31
+    code_path: code/main_ac_mcc.py
+    docker_digest: sha256:219810d11ab17974f4d61eae38108f2b460c36f1a5d01a57f96743215f4c753f
+    docker_image: agkhalil/tw
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.6.9
+batch_size:
+  desc: null
+  value: 50
+episodes:
+  desc: null
+  value: 500
+gamma:
+  desc: null
+  value: 0.99
+lr_ac:
+  desc: null
+  value: 0.16764232763779005
+lr_cr:
+  desc: null
+  value: 0.3110111987314726
+seed:
+  desc: null
+  value: 42

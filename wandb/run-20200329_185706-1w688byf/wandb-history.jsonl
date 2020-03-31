@@ -1,0 +1,12 @@
+{"Episode reward": 67.91127255505933, "Episode length": 637, "Policy Loss": 0.033833567053079605, "Value Loss": 15.740951538085938, "_runtime": 13.702986001968384, "_timestamp": 1585508239.5116692, "_step": 0}
+{"Episode reward": -99.89998210436053, "Episode length": 999, "Policy Loss": -2.8378376960754395, "Value Loss": 125.27711486816406, "_runtime": 15.200758218765259, "_timestamp": 1585508241.0094414, "_step": 1}
+{"Episode reward": -99.90004890909258, "Episode length": 999, "Policy Loss": 20.02372169494629, "Value Loss": 12405.1279296875, "_runtime": 16.71555256843567, "_timestamp": 1585508242.5242357, "_step": 2}
+{"Episode reward": -99.89995585527336, "Episode length": 999, "Policy Loss": -32.79891586303711, "Value Loss": 6011.87744140625, "_runtime": 18.248425006866455, "_timestamp": 1585508244.0571082, "_step": 3}
+{"Episode reward": -99.90007897464358, "Episode length": 999, "Policy Loss": -25.157609939575195, "Value Loss": 341.51513671875, "_runtime": 19.78627610206604, "_timestamp": 1585508245.5949593, "_step": 4}
+{"Episode reward": -99.89999928277851, "Episode length": 999, "Policy Loss": -9.988235473632812, "Value Loss": 120.28038024902344, "_runtime": 21.335350036621094, "_timestamp": 1585508247.1440332, "_step": 5}
+{"Episode reward": -99.89992866373201, "Episode length": 999, "Policy Loss": -0.7065202593803406, "Value Loss": 60.10745620727539, "_runtime": 22.898534774780273, "_timestamp": 1585508248.707218, "_step": 6}
+{"Episode reward": -99.90004089877547, "Episode length": 999, "Policy Loss": -1.3655166625976562, "Value Loss": 318.5970764160156, "_runtime": 24.45438528060913, "_timestamp": 1585508250.2630684, "_step": 7}
+{"Episode reward": -99.89995902601403, "Episode length": 999, "Policy Loss": -9.543436050415039, "Value Loss": 12566.4404296875, "_runtime": 26.014779567718506, "_timestamp": 1585508251.8234627, "_step": 8}
+{"Episode reward": -99.9000589357942, "Episode length": 999, "Policy Loss": -8.013077735900879, "Value Loss": 459.61669921875, "_runtime": 27.590790271759033, "_timestamp": 1585508253.3994734, "_step": 9}
+{"Episode reward": -99.89996194672496, "Episode length": 999, "Policy Loss": -14.482733726501465, "Value Loss": 1951.2952880859375, "_runtime": 29.166067123413086, "_timestamp": 1585508254.9747503, "_step": 10}
+{"Episode reward": -99.90003006274884, "Episode length": 999, "Policy Loss": -8.495842933654785, "Value Loss": 50.69144058227539, "_runtime": 29.166067123413086, "_timestamp": 1585508254.9747503, "_step": 11}
