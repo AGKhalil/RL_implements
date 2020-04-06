@@ -22,17 +22,17 @@ from policies import MLP
 def visualize():
     done = False
     obs = env.reset()
-    imgs, visited_pos, visited_vel = [], [], []
-    img = env.render('rgb_array')
+    visited_pos, visited_vel = [], []
+    #img = env.render('rgb_array')
     while not done:
         imgs.append(img)
         visited_pos.append(obs[0])
         visited_vel.append(obs[1])
         act, _ = vpg.get_action(obs)
         obs, rew, done, _ = env.step(act)
-        img = env.render('rgb_array')
+        #img = env.render('rgb_array')
 
-    imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
+    #imageio.mimsave('/tmp/current_gif.gif', [np.array(img) for i, img in enumerate(imgs) if i%2 == 0], fps=29)
 
     return visited_pos, visited_vel
 
