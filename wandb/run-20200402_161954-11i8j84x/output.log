@@ -1,0 +1,19 @@
+/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
+  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "main_icm_vpg.py", line 91, in <module>
+    next_obs_latent, next_obs_latent_hat, action_hat = icm.forward(obs, new_obs)
+  File "/app/icm.py", line 57, in forward
+    self.obs_latent = self.encoder(obs)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/container.py", line 100, in forward
+    input = module(input)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/linear.py", line 87, in forward
+    return F.linear(input, self.weight, self.bias)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/functional.py", line 1368, in linear
+    if input.dim() == 2 and bias is not None:
+AttributeError: 'numpy.ndarray' object has no attribute 'dim'

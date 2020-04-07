@@ -1,0 +1,9 @@
+/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
+  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "main_icm_vpg.py", line 91, in <module>
+    next_obs_latent, next_obs_latent_hat, action_hat = icm.forward(obs, new_obs)
+  File "/app/icm.py", line 64, in forward
+    self.next_obs_latent_hat = self.forward_model(torch.cat((self.action_hat, self.obs_latent)))
+RuntimeError: invalid argument 0: Sizes of tensors must match except in dimension 0. Got 1 and 128 in dimension 1 at /opt/conda/conda-bld/pytorch_1579022034529/work/aten/src/TH/generic/THTensor.cpp:612

@@ -1,0 +1,28 @@
+{
+    "root": "/app",
+    "program": "main_icm_vpg.py",
+    "git": {
+        "remote": "git@github.com:AGKhalil/RL_implements.git",
+        "commit": "766748675b518f56170e1eb729f9161c5a815c9a"
+    },
+    "email": "elghazalykhalil@gmail.com",
+    "codePath": "main_icm_vpg.py",
+    "startedAt": "2020-04-02T16:52:10.350680",
+    "host": "d5f86da61597",
+    "username": "user",
+    "executable": "/home/user/miniconda/envs/py36/bin/python",
+    "os": "Linux-5.3.0-40-generic-x86_64-with-debian-stretch-sid",
+    "python": "3.6.9",
+    "docker": "agkhalil/tw@sha256:219810d11ab17974f4d61eae38108f2b460c36f1a5d01a57f96743215f4c753f",
+    "gpu": "GeForce RTX 2080 Ti",
+    "gpu_count": 2,
+    "cpu_count": 20,
+    "cuda": "10.1.243",
+    "args": [],
+    "state": "failed",
+    "jobType": null,
+    "mode": "dryrun",
+    "project": "pytorch-vpg-mountaincarcont",
+    "heartbeatAt": "2020-04-02T16:52:11.783597",
+    "exitcode": 1
+}

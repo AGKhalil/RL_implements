@@ -25,7 +25,7 @@ def visualize():
     visited_pos, visited_vel = [], []
     #img = env.render('rgb_array')
     while not done:
-        imgs.append(img)
+        #imgs.append(img)
         visited_pos.append(obs[0])
         visited_vel.append(obs[1])
         act, _ = vpg.get_action(obs)

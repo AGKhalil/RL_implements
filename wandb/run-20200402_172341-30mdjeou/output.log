@@ -1,0 +1,13 @@
+/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
+  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "main_icm_vpg.py", line 121, in <module>
+    loss_inv = loss_inv_fun(acts, act_hats)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/loss.py", line 431, in forward
+    return F.mse_loss(input, target, reduction=self.reduction)
+  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/functional.py", line 2203, in mse_loss
+    if not (target.size() == input.size()):
+AttributeError: 'list' object has no attribute 'size'
