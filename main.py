@@ -111,12 +111,8 @@ for episode in tqdm(range(0, EPISODES)):
         plt.scatter(visited_pos, visited_vel, marker='.')
         plt.xlabel('position')
         plt.ylabel('velocity')
-        wandb.log({
-            "video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif")})
+        #wandb.log({
+            #"video": wandb.Video('/tmp/current_gif.gif', fps=4, format="gif")})
 
-torch.save(vpg.state_dict(), "model.h5")
-wandb.save('model.h5')
-
-tot_per = []
-epsilon = 0
-
+#torch.save(vpg.state_dict(), "model.h5")
+#wandb.save('model.h5')
