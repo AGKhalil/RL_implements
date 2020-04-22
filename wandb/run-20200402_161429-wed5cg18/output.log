@@ -1,8 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 70, in <module>
-    icm = ICM(env=env)
-  File "/app/icm.py", line 38, in __init__
-    F.elu(inplace=True),
-TypeError: elu() missing 1 required positional argument: 'input'

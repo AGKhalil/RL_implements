@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 62, in <module>
-    batch_size = config.batch_size
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/wandb/wandb_config.py", line 224, in __getattr__
-    return self.__getitem__(key)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/wandb/wandb_config.py", line 214, in __getitem__
-    return self._items[key]
-KeyError: 'batch_size'

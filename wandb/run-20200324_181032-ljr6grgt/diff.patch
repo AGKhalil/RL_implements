@@ -1,6 +1,0 @@
-diff --git a/__pycache__/policies.cpython-36.pyc b/__pycache__/policies.cpython-36.pyc
-index 540ecd4..de614a0 100644
-Binary files a/__pycache__/policies.cpython-36.pyc and b/__pycache__/policies.cpython-36.pyc differ
-diff --git a/__pycache__/vpg.cpython-36.pyc b/__pycache__/vpg.cpython-36.pyc
-index a0f4479..4ac0a66 100644
-Binary files a/__pycache__/vpg.cpython-36.pyc and b/__pycache__/vpg.cpython-36.pyc differ

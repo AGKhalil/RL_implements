@@ -1,3 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                       | 0/1000 [00:00<?, ?it/s]

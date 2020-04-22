@@ -1,18 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:05<?, ?it/s]
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 123, in <module>
-    loss_inv = loss_inv_fun(torch.Tensor(acts), act_hats)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/loss.py", line 431, in forward
-    return F.mse_loss(input, target, reduction=self.reduction)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/functional.py", line 2203, in mse_loss
-    if not (target.size() == input.size()):
-AttributeError: 'list' object has no attribute 'size'
->>> act_hast[K[Ktstact_hats[C[C[C[C[Coact_hats[C[C[C[C[C[Cract_hatscact_hatshact_hats.act_hatssact_hats[1Pact_hats[1Pact_hats[1Pact_hats[1Pact_hats[1Pact_hats[C[C[C[C[C[C[1Pact_hats[C[C[C[C[C[1Pact_hats[C[C[C[C[C[C[C[C[C[C[C[C[0]
-tensor([[0.0046]], grad_fn=<AddmmBackward>)
->>> act_hats[0][K[K[K[K[K[K[K[K[K[K[K[]i] ]f]o]r][1P][1P][1P][1P].][1P][1P][1P][C[Kact_hats[0].se[Kqueeze(0)
-tensor([0.0046], grad_fn=<SqueezeBackward1>)
->>> act_hats[0].squeeze(0)[C[1P)i)[1P].squeeze(i)i].squeeze(i)[C[C[C[C[Kexit()

@@ -1,7 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 121, in <module>
-    loss_inv = loss_inv_fun(torch.stack(acts), torch.stack(act_hats))
-TypeError: expected Tensor as element 0 in argument 0, but got list

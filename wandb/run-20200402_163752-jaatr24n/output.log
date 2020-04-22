@@ -1,20 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]torch.Size([1, 2])
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 91, in <module>
-    next_obs_latent, next_obs_latent_hat, action_hat = icm.forward(obs, new_obs)
-  File "/app/icm.py", line 63, in forward
-    self.action_hat = self.inverse_model(torch.cat((self.obs_latent, self.next_obs_latent)))
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/container.py", line 100, in forward
-    input = module(input)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/modules/linear.py", line 87, in forward
-    return F.linear(input, self.weight, self.bias)
-  File "/home/user/miniconda/envs/py36/lib/python3.6/site-packages/torch/nn/functional.py", line 1370, in linear
-    ret = torch.addmm(bias, input, weight.t())
-RuntimeError: size mismatch, m1: [2 x 128], m2: [256 x 128] at /opt/conda/conda-bld/pytorch_1579022034529/work/aten/src/TH/generic/THTensorMath.cpp:136

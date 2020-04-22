@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "main_ac_mcc.py", line 236, in <module>
-    main()
-  File "main_ac_mcc.py", line 99, in main
-    mlp_ac = MLP_AC(net_layers([32, 16])).to(device)
-  File "main_ac_mcc.py", line 64, in net_layers
-    if env_type == 'DISCRETE':
-NameError: name 'env_type' is not defined

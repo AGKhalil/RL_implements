@@ -1,8 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 109, in <module>
-    in_reward += loss_for_fun(next_obs_lat.item(), next_obs_lat_hat.item())
-ValueError: only one element tensors can be converted to Python scalars
->>> exit()

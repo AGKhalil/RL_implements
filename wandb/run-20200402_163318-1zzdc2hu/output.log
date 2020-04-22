@@ -1,12 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 91, in <module>
-    next_obs_latent, next_obs_latent_hat, action_hat = icm.forward(obs, new_obs)
-  File "/app/icm.py", line 62, in forward
-    self.action_hat = self.inverse_model(torch.cat(self.obs_latent, self.next_obs_latent))
-TypeError: cat() received an invalid combination of arguments - got (Tensor, Tensor), but expected one of:
- * (tuple of Tensors tensors, name dim, Tensor out)
- * (tuple of Tensors tensors, int dim, Tensor out)
-

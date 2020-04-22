@@ -1,10 +1,0 @@
-/home/user/miniconda/envs/py36/lib/python3.6/site-packages/gym/logger.py:30: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
-  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]torch.Size([1, 256]) torch.Size([1, 256, 1])
-  0%|                                                                      | 0/30000 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "main_icm_vpg.py", line 91, in <module>
-    next_obs_latent, next_obs_latent_hat, action_hat = icm.forward(obs, new_obs)
-  File "/app/icm.py", line 65, in forward
-    self.next_obs_latent_hat = self.forward_model(torch.cat((self.action_hat, self.obs_latent)))
-RuntimeError: invalid argument 0: Tensors must have same number of dimensions: got 3 and 2 at /opt/conda/conda-bld/pytorch_1579022034529/work/aten/src/TH/generic/THTensor.cpp:603
