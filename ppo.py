@@ -19,9 +19,9 @@ logging.propagate = False
 logging.getLogger().setLevel(logging.ERROR)
 
 
-def main(lr_ac=0.4979, lr_cr=0.6318):
+def main(lr_ac, lr_cr, clip_rt, lambd):
     wandb.init(entity="agkhalil",
-               project="pytorch-ac-mountaincarcont-bayesopt7",
+               project="pytorch-ppo-mountaincarcont-bayesopt1",
                reinit=True)
     wandb.watch_called = False
 
@@ -44,11 +44,11 @@ def main(lr_ac=0.4979, lr_cr=0.6318):
     config.lr_cr = lr_cr
     config.seed = 42
     config.gamma = 0.99
+    config.clip_rt = clip_rt
+    config.lambd = lambd
 
     device = torch.device('cpu')
     torch.manual_seed(config.seed)
-    lr_ac = config.lr_ac
-    lr_cr = config.lr_cr
 
     env = gym.make('MountainCarContinuous-v0')
     state_space_samples = np.array(
@@ -60,12 +60,10 @@ def main(lr_ac=0.4979, lr_cr=0.6318):
     mlp_ac = MLP_AC(net_layers([32, 16], env_type, env)).to(device)
     mlp_cr = MLP_AC(net_layers([64, 32], env_type, env)).to(device)
     ac = AC(mlp_ac, env, device, env_type)
+    new_ac = AC(mlp_ac, env, device, env_type)
     cr = AC(mlp_cr, env, device, env_type)
-    optimizer_cr = optim.Adam(cr.policy.parameters(), lr=lr_cr)
-    optimizer_ac = optim.Adam(ac.policy.parameters(), lr=lr_ac)
-
-    EPISODES = config.episodes
-    gamma = config.gamma
+    optimizer_cr = optim.Adam(cr.policy.parameters(), lr=config.lr_cr)
+    optimizer_ac = optim.Adam(new_ac.policy.parameters(), lr=config.lr_ac)
 
     Transition = namedtuple('Transition',
                             ('state', 'action', 'log_prob', 'reward',
@@ -74,12 +72,8 @@ def main(lr_ac=0.4979, lr_cr=0.6318):
 
     wandb.watch(ac.policy, log="all")
 
-    for episode in tqdm(range(0, EPISODES)):
-        rewards = []
-        log_probs = []
-        values_list = []
-        next_values_list = []
-        acts_list = []
+    for episode in tqdm(range(0, config.episodes)):
+        ac.policy.load_state_dict(new_ac.policy.state_dict())
         obs = env.reset()
         done = False
         ep_reward = 0
@@ -95,24 +89,29 @@ def main(lr_ac=0.4979, lr_cr=0.6318):
             r_buffer.store(trans)
 
             ep_reward += rew
-            acts_list.append(action)
-            rewards.append(rew)
-            log_probs.append(log_prob)
-            values_list.append(value)
-            next_values_list.append(next_value)
             step += 1
             obs = new_obs
 
-        loss_ac, loss_cr = r_buffer.gae_losses(gamma=gamma)
-        optimizer_ac.zero_grad()
+        for _ in range(10):
+            new_log_probs = [
+                new_ac.get_action(scale_state(trans.state,
+                                              scaler))[-1].squeeze()
+                for trans in r_buffer.buffer
+            ]
+             
+            loss_ac, loss_cr = r_buffer.clipped_losses(new_log_probs,
+                                                       gamma=config.gamma,
+                                                       clip_rt=config.clip_rt,
+                                                       lambd=config.lambd)
+            optimizer_ac.zero_grad()
+            loss_ac = torch.stack(loss_ac)
+            loss_ac = (loss_ac - loss_ac.mean()) / (loss_ac.std() + 1e-8)
+            loss_ac.sum().backward(retain_graph=True)
+            optimizer_ac.step()
         optimizer_cr.zero_grad()
         loss_cr = torch.stack(loss_cr)
-        loss_ac = torch.stack(loss_ac)
-        loss_ac = (loss_ac - loss_ac.mean()) / (loss_ac.std() + 1e-8)
         loss_cr.mean().backward(retain_graph=True)
-        loss_ac.sum().backward()
         optimizer_cr.step()
-        optimizer_ac.step()
         r_buffer.empty()
 
         wandb.log(
@@ -124,7 +123,7 @@ def main(lr_ac=0.4979, lr_cr=0.6318):
             },
             step=episode)
 
-        if episode % 500 == 0 and episode != 0:
+        if episode % config.episodes - 1 == 0 and episode != 0:
             env_wandb(env, ac, cr, wandb)
     wandb.join()
 
@@ -132,7 +131,12 @@ def main(lr_ac=0.4979, lr_cr=0.6318):
 
 
 if __name__ == "__main__":
-    pbounds = {'lr_ac': (0.00001, 0.9), 'lr_cr': (0.00001, 0.9)}
+    pbounds = {
+        'lr_ac': (0.00001, 0.9),
+        'lr_cr': (0.00001, 0.9),
+        'clip_rt': (0, 1),
+        'lambd': (0, 1)
+    }
 
     optimizer = BayesianOptimization(
         f=main,

@@ -36,20 +36,38 @@ class ReplayBuffer():
         else:
             self.store_filled(trans)
 
-    def get_losses_offline(self, gamma, lambd=1):
+    def gae(self, gamma, lambd=1):
         tds = [
             trans.reward + gamma * trans.next_value - trans.value
             for trans in self.buffer
         ]
-        discounts = [np.power(gamma * lambd, i) for i in range(self.index)]
-        advantages = [
-            np.sum(np.multiply(discounts[:self.index - i], tds[i:]))
-            for i in range(self.index)
-        ]
+        advantages = []
+        ad = 0
+        for td in reversed(tds):
+            ad = td + ad * gamma * lambd
+            advantages.insert(0, ad)
+
         loss_cr = np.power(tds, 2).tolist()
+        return advantages, loss_cr
+
+    def gae_losses(self, gamma, lambd=1):
+        advantages, loss_cr = self.gae(gamma, lambd)
         loss_ac = np.multiply(advantages,
                               [trans.log_prob
                                for trans in self.buffer]).tolist()
+        return loss_ac, loss_cr
+
+    def clipped_losses(self, new_log_probs, gamma, clip_rt, lambd=1):
+        advantages, loss_cr = self.gae(gamma, lambd)
+        ratio = [
+            new_log_prob - trans.log_prob
+            for trans, new_log_prob in zip(self.buffer, new_log_probs)
+        ]
+        ratio = np.exp(ratio)
+        ratio_adv = np.multiply(advantages, ratio)
+        clipped_adv = np.clip(advantages, np.multiply(advantages, 1 - clip_rt),
+                              np.multiply(advantages, 1 + clip_rt))
+        loss_ac = np.minimum(ratio_adv, clipped_adv).tolist()
         return loss_ac, loss_cr
 
     def sample(self, batch=64):
@@ -58,3 +76,6 @@ class ReplayBuffer():
     def empty(self):
         self.buffer = []
         self.index = 0
+
+    def get_list(self, item):
+        return [getattr(trans, item) for trans in self.buffer]

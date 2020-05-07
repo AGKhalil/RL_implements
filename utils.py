@@ -1,7 +1,7 @@
 import imageio
 import numpy as np
 from pygifsicle import optimize
-import tqdm
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 
@@ -118,5 +118,8 @@ def net_layers(hidden, env_type, env):
     return [obs_space] + hidden + [act_space]
 
 
-def scale_state(obs, scaler):
-    return scaler.transform([obs])
+def scale_state(obs, scaler, batch=False):
+    if batch:
+        return scaler.transform(obs)
+    else:
+        return scaler.transform([obs])
