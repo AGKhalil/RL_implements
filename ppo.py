@@ -14,14 +14,14 @@ import wandb
 from policies import MLP_AC
 from vpg import AC
 from replay_buffer import ReplayBuffer
-from utils import env_wandb, evaluate, net_layers, scale_state
+from utils import env_wandb, evaluate, net_layers, tensor_obs
 logging.propagate = False
 logging.getLogger().setLevel(logging.ERROR)
 
 
 def main(lr_ac, lr_cr, clip_rt, lambd):
     wandb.init(entity="agkhalil",
-               project="pytorch-ppo-mountaincarcont-bayesopt1",
+               project="pytorch-ppo-lunar-bayesopt1",
                reinit=True)
     wandb.watch_called = False
 
@@ -38,8 +38,8 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
     args = parser.parse_args()
 
     config = wandb.config
-    config.batch_size = 50
-    config.episodes = 500
+    config.batch_size = 64
+    config.episodes = 5000
     config.lr_ac = lr_ac
     config.lr_cr = lr_cr
     config.seed = 42
@@ -50,11 +50,7 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
     device = torch.device('cpu')
     torch.manual_seed(config.seed)
 
-    env = gym.make('MountainCarContinuous-v0')
-    state_space_samples = np.array(
-        [env.observation_space.sample() for x in range(1000)])
-    scaler = preprocessing.StandardScaler()
-    scaler.fit(state_space_samples)
+    env = gym.make('LunarLanderContinuous-v2')
     env_type = 'CONT'
 
     mlp_ac = MLP_AC(net_layers([32, 16], env_type, env)).to(device)
@@ -68,49 +64,50 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
     Transition = namedtuple('Transition',
                             ('state', 'action', 'log_prob', 'reward',
                              'next_state', 'done', 'value', 'next_value'))
-    r_buffer = ReplayBuffer(Transition=Transition, size=10000, env=env)
+    r_buffer = ReplayBuffer(Transition=Transition,
+                            size=10000,
+                            env=env,
+                            batch_size=config.batch_size)
 
     wandb.watch(ac.policy, log="all")
 
     for episode in tqdm(range(0, config.episodes)):
         ac.policy.load_state_dict(new_ac.policy.state_dict())
-        obs = env.reset()
+        obs = tensor_obs(env.reset()).to(device)
         done = False
         ep_reward = 0
         step = 0
         while not done:
-            action, log_prob = ac.get_action(scale_state(obs, scaler))
-            value = cr.get_action(scale_state(obs, scaler), critic=True)
+            action, log_prob = ac.get_action(obs)
+            value = cr.get_action(obs, critic=True)
             new_obs, rew, done, _ = env.step(action)
-            next_value = cr.get_action(scale_state(new_obs, scaler),
-                                       critic=True)
-            trans = (obs, action, log_prob.squeeze(), rew, new_obs, done,
-                     value.squeeze(), next_value.squeeze())
+            new_obs = tensor_obs(new_obs)
+            rew = torch.tensor(rew).type(torch.FloatTensor).detach()
+            next_value = cr.get_action(new_obs, critic=True)
+            trans = (obs, torch.tensor(action), log_prob.squeeze(), rew,
+                     new_obs, torch.tensor(done).detach(), value.squeeze(),
+                     next_value.squeeze())
             r_buffer.store(trans)
 
             ep_reward += rew
             step += 1
             obs = new_obs
 
-        for _ in range(10):
-            new_log_probs = [
-                new_ac.get_action(scale_state(trans.state,
-                                              scaler))[-1].squeeze()
-                for trans in r_buffer.buffer
-            ]
-             
+        r_buffer.extract_from_buffer()
+        for i in range(16):
+            new_log_probs = new_ac.get_action(r_buffer.states)[-1].view(
+                r_buffer.sample_size, -1)
             loss_ac, loss_cr = r_buffer.clipped_losses(new_log_probs,
                                                        gamma=config.gamma,
                                                        clip_rt=config.clip_rt,
                                                        lambd=config.lambd)
             optimizer_ac.zero_grad()
-            loss_ac = torch.stack(loss_ac)
-            loss_ac = (loss_ac - loss_ac.mean()) / (loss_ac.std() + 1e-8)
+            # loss_ac = (loss_ac - loss_ac.mean()) / (loss_ac.std() + 1e-8)
+            loss_ac = -loss_ac.mean()
             loss_ac.sum().backward(retain_graph=True)
             optimizer_ac.step()
         optimizer_cr.zero_grad()
-        loss_cr = torch.stack(loss_cr)
-        loss_cr.mean().backward(retain_graph=True)
+        loss_cr.mean().backward()
         optimizer_cr.step()
         r_buffer.empty()
 
@@ -123,7 +120,7 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
             },
             step=episode)
 
-        if episode % config.episodes - 1 == 0 and episode != 0:
+        if episode % config.episodes == 0 and episode != 0:
             env_wandb(env, ac, cr, wandb)
     wandb.join()
 
@@ -132,10 +129,10 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
 
 if __name__ == "__main__":
     pbounds = {
-        'lr_ac': (0.00001, 0.9),
-        'lr_cr': (0.00001, 0.9),
-        'clip_rt': (0, 1),
-        'lambd': (0, 1)
+        'lr_ac': (1e-5, 1e-1),
+        'lr_cr': (1e-5, 1e-1),
+        'clip_rt': (0.01, 0.3),
+        'lambd': (0.8, 1)
     }
 
     optimizer = BayesianOptimization(
@@ -145,8 +142,8 @@ if __name__ == "__main__":
     )
 
     optimizer.maximize(
-        init_points=5,
-        n_iter=20,
+        init_points=10,
+        n_iter=50,
     )
 
     print(optimizer.max)

@@ -74,7 +74,8 @@ class AC():
                 self.action_mean).squeeze(0)[self.act]
         else:
             self.action_mean, self.action_std = self.get_current_policy(obs)
-            #print('mean, std', self.action_mean, self.action_std)
+            self.action_mean = self.action_mean.view(-1)
+            self.action_std = self.action_std.view(-1)
             self.dist = torch.distributions.normal.Normal(
                 self.action_mean, self.action_std + 1e-5)
             self.act = self.dist.sample().squeeze()
@@ -88,4 +89,4 @@ class AC():
 
     def get_current_policy(self, obs, critic=False):
         return self.policy.forward(
-            torch.from_numpy(obs).float().to(self.device), critic)
+            obs, critic)
