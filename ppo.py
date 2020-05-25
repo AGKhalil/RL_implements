@@ -39,7 +39,7 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
 
     config = wandb.config
     config.batch_size = 64
-    config.episodes = 5000
+    config.episodes = 2000
     config.lr_ac = lr_ac
     config.lr_cr = lr_cr
     config.seed = 42
@@ -94,19 +94,18 @@ def main(lr_ac, lr_cr, clip_rt, lambd):
             obs = new_obs
 
         r_buffer.extract_from_buffer()
+        optimizer_cr.zero_grad()
         for i in range(16):
+            optimizer_ac.zero_grad()
             new_log_probs = new_ac.get_action(r_buffer.states)[-1].view(
                 r_buffer.sample_size, -1)
             loss_ac, loss_cr = r_buffer.clipped_losses(new_log_probs,
                                                        gamma=config.gamma,
                                                        clip_rt=config.clip_rt,
                                                        lambd=config.lambd)
-            optimizer_ac.zero_grad()
-            # loss_ac = (loss_ac - loss_ac.mean()) / (loss_ac.std() + 1e-8)
-            loss_ac = -loss_ac.mean()
+            loss_ac = (loss_ac - loss_ac.mean()) / (loss_ac.std() + 1e-8)
             loss_ac.sum().backward(retain_graph=True)
             optimizer_ac.step()
-        optimizer_cr.zero_grad()
         loss_cr.mean().backward()
         optimizer_cr.step()
         r_buffer.empty()
