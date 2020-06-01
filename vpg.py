@@ -85,7 +85,7 @@ class AC():
                                 self.env.action_space.high[0]).item()
                 ], self.dist.log_prob(self.act)
             else:
-                return self.act.numpy(), self.dist.log_prob(self.act)
+                return self.act.cpu().numpy(), self.dist.log_prob(self.act)
 
     def get_current_policy(self, obs, critic=False):
         return self.policy.forward(

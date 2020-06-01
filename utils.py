@@ -10,16 +10,16 @@ def tensor_obs(obs):
     return torch.tensor(obs).type(torch.FloatTensor).view(1, -1).detach()
 
 
-def evaluate(env, ac, cr):
+def evaluate(env, ac, cr, device):
     eval_rew = []
     for _ in tqdm(range(0, 100)):
         done = False
-        obs = tensor_obs(env.reset())
+        obs = tensor_obs(env.reset()).to(device)
         ep_reward = 0
         while not done:
             act, _ = ac.get_action(obs)
             obs, rew, done, _ = env.step(act)
-            obs = tensor_obs(obs)
+            obs = tensor_obs(obs).to(device)
             ep_reward += rew
         eval_rew.append(ep_reward)
 

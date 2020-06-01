@@ -5,7 +5,7 @@ import numpy as np
 
 
 class ReplayBuffer():
-    def __init__(self, Transition, size, env, batch_size):
+    def __init__(self, Transition, size, env, batch_size, device):
         self.size = size
         self.buffer = []
         self.index = 0
@@ -14,6 +14,7 @@ class ReplayBuffer():
         self.buffer_fields = self.Transition._fields
         self.batch_size = batch_size
         self.sample_size = self.index
+        self.device = device
 
     def fill_buffer(self):
         obs = self.env.reset()
@@ -54,7 +55,7 @@ class ReplayBuffer():
     def gae(self, gamma, lambd=1):
         tds = self.rewards + gamma * self.next_values - self.values
         advantages = []
-        ad = torch.zeros(1)
+        ad = torch.zeros(1).to(self.device)
         for td in reversed(tds):
             ad = td + ad * gamma * lambd
             advantages.insert(0, ad)
