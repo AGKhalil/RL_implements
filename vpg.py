@@ -62,14 +62,16 @@ class AC():
         self.policy = policy
         self.env_type = env_type
 
-    def get_action(self, obs, critic=False):
+    def get_action(self, obs, critic=False, action=None):
+        log_resample = False if action is None else True
         if critic:
             return self.get_current_policy(obs, critic=critic)
         if self.env_type == 'DISCRETE':
             self.action_logit = self.get_current_policy(obs)
             self.probs = F.softmax(self.action_mean)
             self.dist = torch.distributions.Categorical(self.probs)
-            self.act = self.dist.sample().item()
+            self.act = action.view(
+                -1) if log_resample else self.dist.sample().item()
             return self.act, F.log_softmax(
                 self.action_mean).squeeze(0)[self.act]
         else:
@@ -78,7 +80,8 @@ class AC():
             self.action_std = self.action_std.view(-1)
             self.dist = torch.distributions.normal.Normal(
                 self.action_mean, self.action_std + 1e-5)
-            self.act = self.dist.sample().squeeze()
+            self.act = action.view(
+                -1) if log_resample else self.dist.sample().squeeze()
             if self.act.nelement() == 1:
                 return [
                     torch.clamp(self.act, self.env.action_space.low[0],
@@ -88,5 +91,4 @@ class AC():
                 return self.act.cpu().numpy(), self.dist.log_prob(self.act)
 
     def get_current_policy(self, obs, critic=False):
-        return self.policy.forward(
-            obs, critic)
+        return self.policy.forward(obs, critic)

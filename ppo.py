@@ -76,7 +76,7 @@ def main(trial):
             new_obs = tensor_obs(new_obs).to(device)
             rew = torch.tensor(rew).type(torch.FloatTensor).detach()
             next_value = cr.get_action(new_obs, critic=True)
-            trans = (obs, torch.tensor(action), log_prob.squeeze(),
+            trans = (obs, torch.tensor(action).to(device), log_prob.squeeze(),
                      rew.to(device), new_obs, torch.tensor(done).detach(),
                      value.squeeze(), next_value.squeeze())
             r_buffer.store(trans)
@@ -89,8 +89,9 @@ def main(trial):
         optimizer_cr.zero_grad()
         for i in range(config.epochs):
             optimizer_ac.zero_grad()
-            new_log_probs = new_ac.get_action(r_buffer.states)[-1].view(
-                r_buffer.sample_size, -1)
+            new_log_probs = new_ac.get_action(
+                r_buffer.states,
+                action=r_buffer.actions)[-1].view(r_buffer.sample_size, -1)
             loss_ac, loss_cr = r_buffer.clipped_losses(new_log_probs,
                                                        gamma=config.gamma,
                                                        clip_rt=config.clip_rt,
