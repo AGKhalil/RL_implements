@@ -1,0 +1,331 @@
+import torch
+import torch.nn.functional as F
+import pytorch_lightning as pl
+import numpy as np
+from typing import Tuple, List
+from torch.optim import Optimizer
+from collections import OrderedDict, deque
+import gym
+import argparse
+from collections import namedtuple
+from torch.utils.data.dataset import IterableDataset
+from torch.utils.data import DataLoader
+
+import torch.nn as nn
+import torch.optim as optim
+
+Experience = namedtuple(
+    'Experience',
+    ('state', 'action', 'log_prob', 'reward', 'done', 'last_state'))
+
+
+class MLP(nn.Module):
+    """
+    Simple MLP network
+
+    Args:
+        obs_size: observation/obs size of the environment
+        n_actions: number of discrete actions available in the environment
+        layers: size of hidden layers
+    """
+    def __init__(self, obs_size: int, n_actions: int, layers: int = [64, 32]):
+        super(MLP, self).__init__()
+        self.fc = nn.ModuleList()
+        self.layers_size = len(layers)
+        prev = obs_size
+        for n in range(0, self.layers_size):
+            self.fc.append(nn.Linear(prev, layers[n]))
+            prev = layers[n]
+        self.fc.append(nn.Linear(prev, n_actions))
+        self.layers_n = len(self.fc) - 1
+
+    def forward(self, x):
+        for n in range(self.layers_n):
+            x = F.relu(self.fc[n](x))
+        return self.fc[self.layers_n](x)
+
+
+class RolloutCollector:
+    """
+    Buffer for collecting rollout experiences allowing the agent to learn from
+    them
+
+    Args:
+        capacity: size of the buffer
+    """
+    def __init__(self, capacity: int) -> None:
+        self.capacity = capacity
+        self.replay_buffer = deque(maxlen=self.capacity)
+
+    def __len__(self) -> None:
+        return len(self.replay_buffer)
+
+    def append(self, experience: Experience) -> None:
+        """
+        Add experience to the buffer
+
+        Args:
+            experience: tuple (state, action, reward, done, new_state)
+        """
+        self.replay_buffer.append(experience)
+
+    def sample(self, batch_size: int) -> Tuple:
+        states, actions, log_probs, rewards, dones, next_states = zip(
+            *[exp for exp in self.replay_buffer])
+
+        return (np.array(states), np.array(actions), np.array(log_probs),
+                np.array(rewards, dtype=np.float32),
+                np.array(dones, dtype=np.bool), np.array(next_states))
+
+    def empty_buffer(self):
+        self.replay_buffer = deque(maxlen=self.capacity)
+
+
+class Agent:
+    """
+    Base Agent class handeling the interaction with the environment
+
+    Args:
+        env: training environment
+    """
+    def __init__(self, env: gym.Env, replay_buffer: RolloutCollector) -> None:
+        self.env = env
+        self.reset()
+        self.obs = self.env.reset()
+        self.replay_buffer = replay_buffer
+
+    def reset(self) -> None:
+        """ Resents the environment and updates the obs"""
+        self.obs = self.env.reset()
+
+    def get_action(self, net: nn.Module,
+                   device: str) -> Tuple[int, torch.Tensor]:
+        """
+        Using the given network, decide what action to carry out
+        using an epsilon-greedy policy
+
+        Args:(b
+            net: policy network
+            device: current device
+
+        Returns:
+            action
+        """
+        obs = torch.from_numpy(self.obs).float().unsqueeze(0)
+        if device not in ['cpu']:
+            obs = obs.cuda(device)
+
+        action_logit = net(obs)
+        probs = F.softmax(action_logit, dim=1)
+        dist = torch.distributions.Categorical(probs)
+        action = dist.sample().item()
+        log_probs = F.log_softmax(action_logit, dim=1).squeeze(0)[action]
+        action = int(action)
+        return action, log_probs
+
+    # @torch.no_grad()
+    def play_step(self,
+                  net: nn.Module,
+                  device: str = 'cpu') -> Tuple[float, bool, torch.Tensor]:
+        """
+        Carries out a single interaction step between the agent and the
+        environment
+
+        Args:
+            net: policy network
+            epsilon: value to determine likelihood of taking a random action
+            device: current device
+
+        Returns:
+            reward, done
+        """
+
+        action, log_prob = self.get_action(net, device)
+
+        # do step in the environment
+        new_obs, reward, done, _ = self.env.step(action)
+        exp = Experience(self.obs, action, log_prob, reward, done, new_obs)
+        self.replay_buffer.append(exp)
+
+        self.obs = new_obs
+        if done:
+            self.reset()
+        return reward, done, log_prob
+
+
+class RLDataset(IterableDataset):
+    """
+    Iterable Dataset containing the ExperienceBuffer
+    which will be updated with new experiences during training
+
+    Args:
+        replay_buffer: replay buffer
+        sample_size: number of experiences to sample at a time
+    """
+    def __init__(self,
+                 replay_buffer: RolloutCollector,
+                 sample_size: int = 200) -> None:
+        self.replay_buffer = replay_buffer
+        self.sample_size = sample_size
+
+    def __iter__(self) -> Tuple:
+        states, actions, log_probs, rewards, dones, new_states = self.replay_buffer.sample(
+            self.sample_size)
+        for i in range(len(dones)):
+            yield states[i], actions[i], log_probs[i], rewards[i], dones[
+                i], new_states[i]
+
+
+class VPGLightning(pl.LightningModule):
+    """ Basic VPG Model """
+    def __init__(self, hparams: argparse.Namespace) -> None:
+        super().__init__()
+        self.hparams = hparams
+
+        self.env = gym.make(self.hparams.env)
+        self.gamma = self.hparams.gamma
+        self.eps = self.hparams.eps
+        obs_size = self.env.observation_space.shape[0]
+        n_actions = self.env.action_space.n
+
+        self.net = MLP(obs_size, n_actions)
+        self.replay_buffer = RolloutCollector(self.hparams.episode_length)
+
+        self.agent = Agent(self.env, self.replay_buffer)
+        self.episode_reward = 0
+        self.populate(self.hparams.episode_length)
+
+    def populate(self, steps: int) -> None:
+        """
+        Carries out several random steps through the environment to initially fill
+        up the replay buffer with experiences
+
+        Args:
+            steps: number of random steps to populate the buffer with
+        """
+        for i in range(steps):
+            self.agent.play_step(self.net)
+
+    def reward_to_go(self, rewards):
+        return np.sum([
+            rewards[i] * np.power(self.gamma, i) for i in range(len(rewards))
+        ])
+
+    def vpg_loss(self, batch: Tuple[torch.Tensor,
+                                    torch.Tensor]) -> torch.Tensor:
+        """
+        Calculates the CE loss using a mini batch of a full episode
+
+        Args:
+            batch: current mini batch of replay data
+
+        Returns:
+            loss
+        """
+        states, actions, log_probs, rewards, dones, next_states = batch
+
+        discounted_rewards = [
+            self.reward_to_go(rewards[i:]) for i in range(len(rewards))
+        ]
+        discounted_rewards = torch.tensor(discounted_rewards)
+        advantage = (discounted_rewards - discounted_rewards.mean()) / (
+            discounted_rewards.std() + self.eps)
+        loss = [-advantage[i] * log_probs[i] for i in range(len(advantage))]
+        loss = torch.stack(loss).sum()
+        return loss
+
+    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor],
+                      nb_batch) -> OrderedDict:
+        """
+        Carries out an entire episode in env and calculates loss
+
+        Returns:
+            Training loss and log metrics
+        """
+        device = self.get_device(batch)
+        done = False
+        while not done:
+            reward, done, _ = self.agent.play_step(self.net, device)
+            self.episode_reward += reward
+
+        # calculates training loss
+        loss = self.vpg_loss(batch)
+
+        if self.trainer.use_dp or self.trainer.use_ddp2:
+            loss = loss.unsqueeze(0)
+
+        log = {
+            'episode_reward': torch.tensor(self.episode_reward).to(device),
+            'train_loss': loss
+        }
+        status = {
+            'steps': torch.tensor(self.global_step).to(device),
+            'episode_reward': torch.tensor(self.episode_reward).to(device)
+        }
+
+        return OrderedDict({'loss': loss, 'log': log, 'progress_bar': status})
+
+    def configure_optimizers(self) -> List[Optimizer]:
+        """ Initialize Adam optimizer"""
+        optimizer = optim.Adam(self.net.parameters(), lr=self.hparams.lr)
+        return [optimizer]
+
+    def get_device(self, batch) -> str:
+        """Retrieve device currently being used by minibatch"""
+        return batch[0].device.index if self.on_gpu else 'cpu'
+
+    def __dataloader(self) -> DataLoader:
+        """Initialize the Replay Buffer dataset used for retrieving experiences"""
+        dataset = RLDataset(self.replay_buffer, self.hparams.episode_length)
+        dataloader = DataLoader(
+            dataset=dataset,
+            batch_size=self.replay_buffer.__len__(),
+        )
+        return dataloader
+
+    def train_dataloader(self) -> DataLoader:
+        """Get train loader"""
+        return self.__dataloader()
+
+
+def main(hparams) -> None:
+    model = VPGLightning(hparams)
+
+    trainer = pl.Trainer(gpus=1,
+                         distributed_backend='dp',
+                         max_epochs=500,
+                         early_stop_callback=False,
+                         val_check_interval=100)
+
+    trainer.fit(model)
+
+
+torch.manual_seed(0)
+np.random.seed(0)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+parser.add_argument("--eps",
+                    type=float,
+                    default=np.finfo(np.float32).eps.item(),
+                    help="small offset")
+parser.add_argument("--env",
+                    type=str,
+                    default="CartPole-v0",
+                    help="gym environment tag")
+parser.add_argument("--gamma",
+                    type=float,
+                    default=0.99,
+                    help="discount factor")
+parser.add_argument("--episode_length",
+                    type=int,
+                    default=200,
+                    help="max length of an episode")
+parser.add_argument("--max_episode_reward",
+                    type=int,
+                    default=200,
+                    help="max episode reward in the environment")
+
+args, _ = parser.parse_known_args()
+
+main(args)
