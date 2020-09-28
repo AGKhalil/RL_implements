@@ -176,11 +176,8 @@ class RLDataset(IterableDataset):
         # self.run_episode()
 
     def __iter__(self) -> Tuple:
-        # self.replay_buffer.empty_buffer()
-        # self.run_episode()
         states, actions, rewards, dones, new_states = self.replay_buffer.sample(
         )
-        # print('FU', len(dones), self.replay_buffer.__len__())
         for i in range(len(dones)):
             yield states[i], actions[i], rewards[i], dones[i], new_states[
                 i]
@@ -212,11 +209,8 @@ class VPGLightning(pl.LightningModule):
 
     def populate(self) -> None:
         """
-        Carries out several random steps through the environment to initially fill
-        up the replay buffer with experiences
+        Samples an entire episode
 
-        Args:
-            steps: number of random steps to populate the buffer with
         """
         self.replay_buffer.empty_buffer()
         done = False
@@ -241,8 +235,6 @@ class VPGLightning(pl.LightningModule):
         """
         self.populate()
         states, actions, rewards, dones, next_states = batch
-
-        # print('fuck me', rewards)
 
         action_logit = self.net(states.float()).to(self.device)
         log_probs = F.log_softmax(action_logit, dim=1).squeeze(0)[actions]
