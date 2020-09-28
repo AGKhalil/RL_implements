@@ -173,7 +173,6 @@ class RLDataset(IterableDataset):
         self.net = net
         self.agent = agent
         self.device = 'cuda:0'  # need a better way
-        # self.run_episode()
 
     def __iter__(self) -> Tuple:
         states, actions, rewards, dones, new_states = self.replay_buffer.sample(
@@ -181,11 +180,6 @@ class RLDataset(IterableDataset):
         for i in range(len(dones)):
             yield states[i], actions[i], rewards[i], dones[i], new_states[
                 i]
-
-    def run_episode(self):
-        done = False
-        while not done:
-            reward, done = self.agent.play_step(self.net, self.device)
 
 
 class VPGLightning(pl.LightningModule):
