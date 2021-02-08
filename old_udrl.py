@@ -6,25 +6,22 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import gym
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 import optuna
+import argparse
 
 
 # Behavior Function
 class BF(nn.Module):
-    def __init__(self, state_space, action_space, hidden_size, seed,
-                 horizon_scale, return_scale):
+    def __init__(self, args):
         super(BF, self).__init__()
-        self.return_scale = return_scale
-        self.horizon_scale = horizon_scale
-        torch.manual_seed(seed)
-        self.actions = np.arange(action_space)
-        self.action_space = action_space
-        self.fc1 = nn.Linear(state_space, hidden_size)
-        self.commands = nn.Linear(2, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, action_space)
+        self.return_scale = args.return_scale
+        self.horizon_scale = args.horizon_scale
+        torch.manual_seed(args.seed)
+        self.actions = np.arange(args.action_space)
+        self.fc1 = nn.Linear(args.state_space, args.hidden_size)
+        self.commands = nn.Linear(2, args.hidden_size)
+        self.fc2 = nn.Linear(args.hidden_size, args.hidden_size)
+        self.fc3 = nn.Linear(args.hidden_size, args.action_space)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, state, command):
@@ -59,11 +56,11 @@ class BF(nn.Module):
         return action
 
 
-# Replay Buffer
+# Replay rBuffer
 class ReplayBuffer():
     def __init__(self, max_size):
         self.max_size = max_size
-        self.buffer = []
+        self.rbuffer = []
 
     def add_sample(self, states, actions, rewards):
         episode = {
@@ -72,67 +69,63 @@ class ReplayBuffer():
             "rewards": rewards,
             "summed_rewards": sum(rewards)
         }
-        self.buffer.append(episode)
+        self.rbuffer.append(episode)
 
     def sort(self):
-        # sort buffer
-        self.buffer = sorted(self.buffer,
-                             key=lambda i: i["summed_rewards"],
-                             reverse=True)
-        # keep the max buffer size
-        self.buffer = self.buffer[:self.max_size]
+        # sort rbuffer
+        self.rbuffer = sorted(self.rbuffer,
+                              key=lambda i: i["summed_rewards"],
+                              reverse=True)
+        # keep the max rbuffer size
+        self.rbuffer = self.rbuffer[:self.max_size]
 
     def get_random_samples(self, batch_size):
         self.sort()
-        idxs = np.random.randint(0, len(self.buffer), batch_size)
-        batch = [self.buffer[idx] for idx in idxs]
+        idxs = np.random.randint(0, len(self.rbuffer), batch_size)
+        batch = [self.rbuffer[idx] for idx in idxs]
         return batch
 
     def get_nbest(self, n):
         self.sort()
-        return self.buffer[:n]
+        return self.rbuffer[:n]
 
     def __len__(self):
-        return len(self.buffer)
+        return len(self.rbuffer)
 
 
 class UDRL():
-    def __init__(self, env, action_space, state_space, max_reward,
-                 max_episodes, device, replay_size, n_warm_up_episodes,
-                 n_updates_per_iter, n_episodes_per_iter, last_few, batch_size,
-                 init_desired_reward, init_time_horizon, buffer, bf, optimizer,
-                 return_scale, horizon_scale):
-        self.last_few = last_few
-        self.buffer = buffer
-        self.state_space = state_space
+    def __init__(self, args, env, rbuffer, bf, optimizer, device):
+        self.last_few = args.last_few
+        self.rbuffer = rbuffer
+        self.state_space = args.state_space
         self.env = env
-        self.action_space = action_space
-        self.max_reward = max_reward
-        self.max_episodes = max_episodes
+        self.action_space = args.action_space
+        self.max_reward = args.max_reward
+        self.totalnum_iterations = args.totalnum_iterations
         self.device = device
-        self.replay_size = replay_size
-        self.n_warm_up_episodes = n_warm_up_episodes
-        self.n_updates_per_iter = n_updates_per_iter
-        self.n_episodes_per_iter = n_episodes_per_iter
-        self.batch_size = batch_size
-        self.init_desired_reward = init_desired_reward
-        self.init_time_horizon = init_time_horizon
-        self.buffer = buffer
+        self.replay_size = args.replay_size
+        self.n_warm_up_episodes = args.n_warm_up_episodes
+        self.n_updates_per_iter = args.n_updates_per_iter
+        self.n_episodes_per_iter = args.n_episodes_per_iter
+        self.batch_size = args.batch_size
+        self.init_desired_reward = args.init_desired_reward
+        self.init_time_horizon = args.init_time_horizon
+        self.rbuffer = rbuffer
         self.bf = bf
         self.optimizer = optimizer
-        self.return_scale = return_scale
-        self.horizon_scale = horizon_scale
+        self.return_scale = args.return_scale
+        self.horizon_scale = args.horizon_scale
 
     def sampling_exploration(self):
         """
         This function calculates the new desired reward and new desired horizon
-        based on the replay buffer. New desired horizon is calculted by the
+        based on the replay rbuffer. New desired horizon is calculted by the
         mean length of the best last X episodes. New desired reward is sampled
         from a uniform distribution given the mean and the std calculated from
         the last best X performances. where X is the hyperparameter last_few.
         """
 
-        top_X = self.buffer.get_nbest(self.last_few)
+        top_X = self.rbuffer.get_nbest(self.last_few)
         # The exploratory desired horizon dh0 is set to the mean of the lengths
         # of the selected episodes
         new_desired_horizon = np.mean([len(i["states"]) for i in top_X])
@@ -152,7 +145,7 @@ class UDRL():
     # FUNCTIONS FOR TRAINING
     def select_time_steps(self, saved_episode):
         """
-        Given a saved episode from the replay buffer this function samples
+        Given a saved episode from the replay rbuffer this function samples
         random time steps (t1 and t2) in that episode:
         T = max time horizon in that episode
         Returns t1, t2 and T
@@ -172,7 +165,7 @@ class UDRL():
         2. the desired reward: sum over all rewards from t1 to t2
         3. the time horizont: t2 -t1
         4. the target action taken at t1
-        buffer episodes are build like [cumulative episode reward, states,
+        rbuffer episodes are build like [cumulative episode reward, states,
         actions, rewards]
         """
         state = episode["states"][t1]
@@ -199,8 +192,8 @@ class UDRL():
         """
         input_array = []
         output_array = []
-        # select randomly episodes from the buffer
-        episodes = self.buffer.get_random_samples(batch_size)
+        # select randomly episodes from the rbuffer
+        episodes = self.rbuffer.get_random_samples(batch_size)
         for ep in episodes:
             # select time stamps
             t1, t2, T = self.select_time_steps(ep)
@@ -221,7 +214,7 @@ class UDRL():
         """
         Trains the BF with on a cross entropy loss were the inputs are the
         action probabilities based on the state and command. The targets are
-        the actions appropriate to the states from the replay buffer.
+        the actions appropriate to the states from the replay rbuffer.
         """
         X, y = self.create_training_examples(batch_size)
 
@@ -265,7 +258,7 @@ class UDRL():
     # Algorithm 2 - Generates an Episode unsing the Behavior Function:
     def generate_episode(self, desired_return, desired_time_horizon):
         """
-        Generates more samples for the replay buffer.
+        Generates more samples for the replay rbuffer.
         """
         state = self.env.reset()
         states = []
@@ -293,7 +286,7 @@ class UDRL():
         return [states, actions, rewards]
 
     # Algorithm 1 - Upside - Down Reinforcement Learning
-    def run_upside_down(self, wandb, max_episodes):
+    def run_upside_down(self, wandb, totalnum_iterations):
         """
         """
         all_rewards = []
@@ -301,9 +294,9 @@ class UDRL():
         average_100_reward = []
         desired_rewards_history = []
         horizon_history = []
-        for ep in range(1, max_episodes + 1):
+        for training_step in range(1, totalnum_iterations + 1):
 
-            # improve|optimize bf based on replay buffer
+            # improve|optimize bf based on replay rbuffer
             loss_buffer = []
             for i in range(self.n_updates_per_iter):
                 bf_loss = self.train_behavior_function(self.batch_size)
@@ -311,17 +304,17 @@ class UDRL():
             bf_loss = np.mean(loss_buffer)
             losses.append(bf_loss)
 
-            # run x new episode and add to buffer
+            # run x new episode and add to rbuffer
             for i in range(self.n_episodes_per_iter):
 
-                # Sample exploratory commands based on buffer
+                # Sample exploratory commands based on rbuffer
                 new_desired_reward, new_desired_horizon = self.sampling_exploration(
                 )
                 generated_episode = self.generate_episode(
                     new_desired_reward, new_desired_horizon)
-                self.buffer.add_sample(generated_episode[0],
-                                       generated_episode[1],
-                                       generated_episode[2])
+                self.rbuffer.add_sample(generated_episode[0],
+                                        generated_episode[1],
+                                        generated_episode[2])
 
             new_desired_reward, new_desired_horizon = self.sampling_exploration(
             )
@@ -341,18 +334,19 @@ class UDRL():
                     "Desired reward": new_desired_reward.item(),
                     "BF loss": bf_loss
                 },
-                step=ep)
+                step=training_step)
 
             print(
                 "\rEpisode: {} | Rewards: {:.2f} | Mean_100_Rewards: {:.2f} | Loss: {:.2f}"
-                .format(ep, ep_rewards, np.mean(all_rewards[-100:]), bf_loss),
+                .format(training_step, ep_rewards, np.mean(all_rewards[-100:]),
+                        bf_loss),
                 end="",
                 flush=True)
-            if ep % 100 == 0:
+            if training_step % 100 == 0:
                 print(
                     "\rEpisode: {} | Rewards: {:.2f} | Mean_100_Rewards: {:.2f} | Loss: {:.2f}"
-                    .format(ep, ep_rewards, np.mean(all_rewards[-100:]),
-                            bf_loss))
+                    .format(training_step, ep_rewards,
+                            np.mean(all_rewards[-100:]), bf_loss))
 
         return all_rewards, average_100_reward, desired_rewards_history, horizon_history, losses
 
@@ -385,11 +379,10 @@ class UDRL():
                 if done:
                     break
 
-            self.buffer.add_sample(states, actions, rewards)
+            self.rbuffer.add_sample(states, actions, rewards)
 
 
-def main(trial):
-    # init Environment
+def optuna_study(trial):
     wandb.init(entity="agkhalil", project="pytorch-udrl-cartpole", reinit=True)
     wandb.watch_called = False
     config = wandb.config
@@ -397,7 +390,7 @@ def main(trial):
     action_space = env.action_space.n
     state_space = env.observation_space.shape[0]
     config.max_reward = 200
-    config.max_episodes = 200
+    config.totalnum_iterations = 200
     config.device = torch.device(
         "cuda:1" if torch.cuda.is_available() else "cpu")
     config.horizon_scale = trial.suggest_categorical(
@@ -418,60 +411,131 @@ def main(trial):
     config.init_desired_reward = 1
     config.init_time_horizon = 1
 
-    # init replay buffer with n-warmup runs
-    buffer = ReplayBuffer(config.replay_size)
+    # init replay rbuffer with n-warmup runs
+    rbuffer = ReplayBuffer(config.replay_size)
     bf = BF(state_space, action_space, 64, 1, config.horizon_scale,
             config.return_scale).to(config.device)
     optimizer = optim.Adam(params=bf.parameters(), lr=1e-3)
     udrl = UDRL(env, action_space, state_space, config.max_reward,
-                config.max_episodes, config.device, config.replay_size,
+                config.totalnum_iterations, config.device, config.replay_size,
                 config.n_warm_up_episodes, config.n_updates_per_iter,
                 config.n_episodes_per_iter, config.last_few, config.batch_size,
-                config.init_desired_reward, config.init_time_horizon, buffer,
+                config.init_desired_reward, config.init_time_horizon, rbuffer,
                 bf, optimizer, config.return_scale, config.horizon_scale)
     udrl.warmup()
     rewards, average, d, h, loss = udrl.run_upside_down(
-        wandb, max_episodes=config.max_episodes)
+        wandb, totalnum_iterations=config.max_episodes)
 
     # SAVE MODEL
     name = "model.pth"
     torch.save(bf.state_dict(), name)
     wandb.join()
 
-    # OBSERVE THE WEIGHTS after training
-    # for p in bf.parameters():
-    #    print(p)
-    # EVALUATION RUN
 
-    # DESIRED_REWARD = torch.FloatTensor([200]).to(device)
-    # DESIRED_HORIZON = torch.FloatTensor([200]).to(device)
-    # desired = DESIRED_REWARD.item()
+def main(args):
+    wandb.init(entity="agkhalil", project="udrl-contrast")
+    env = gym.make(args.env_name)
+    device = torch.device(args.device)
+    rbuffer = ReplayBuffer(args.replay_size)
+    bf = BF(args).to(device)
+    optimizer = optim.Adam(params=bf.parameters(), lr=args.lr)
+    udrl = UDRL(args, env, rbuffer, bf, optimizer, device)
+    udrl.warmup()
+    rewards, average, d, h, loss = udrl.run_upside_down(
+        wandb, args.totalnum_iterations)
 
-    # env = gym.make('CartPole-v0')
-    # env.reset()
-    # rewards = 0
-    # while True:
-    # command = torch.cat(
-    # (DESIRED_REWARD * self.return_scale, DESIRED_HORIZON * self.horizon_scale),
-    # dim=-1)
-    # # env.render()
-    # probs_logits = bf(torch.from_numpy(state).float().to(device), command)
-    # probs = torch.softmax(probs_logits, dim=-1).detach().cpu()
-    # action = torch.argmax(probs).item()
-    # state, reward, done, info = env.step(action)
-    # rewards += reward
-    # DESIRED_REWARD -= reward
-    # DESIRED_HORIZON -= 1
-    # if done:
-    # break
-
-    # print(
-    # "Desired rewards: {} | after finishing one episode the agent received {} rewards"
-    # .format(desired, rewards))
-    # env.close()
+    torch.save(bf.state_dict(), wandb.run.id)
 
 
 if __name__ == "__main__":
-    study = optuna.create_study()
-    study.optimize(main, n_trials=100)
-    study.best_params
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lr',
+                        type=float,
+                        default=1e-3,
+                        help='optimizer learning rate')
+    parser.add_argument('--hidden_size',
+                        type=int,
+                        default=60,
+                        help='BF hidden size')
+    parser.add_argument('--seed', type=int, default=42, help='Experiment seed')
+    parser.add_argument('--optuna',
+                        type=bool,
+                        default=False,
+                        help='Optuna study running')
+    parser.add_argument('--env_name',
+                        type=str,
+                        default='CartPole-v0',
+                        help='Gym env')
+    args, remaining_args = parser.parse_known_args()
+    env = gym.make(args.env_name)
+    parser.add_argument('--state_space',
+                        type=int,
+                        default=env.observation_space.shape[0],
+                        help='env state space')
+    parser.add_argument('--action_space',
+                        type=int,
+                        default=env.action_space.n,
+                        help='env action space')
+    parser.add_argument('--max_reward',
+                        type=int,
+                        default=env.spec.reward_threshold,
+                        help='Max reward allowed')
+    parser.add_argument('--totalnum_iterations',
+                        type=int,
+                        default=100,
+                        help='Total number of episodes to run')
+    parser.add_argument(
+        '--device',
+        type=str,
+        default="cuda:1" if torch.cuda.is_available() else "cpu",
+        help='cuda:1 if available else cpu')
+    parser.add_argument('--horizon_scale',
+                        type=float,
+                        default=0.02,
+                        help='Desired horizon scale')
+    parser.add_argument('--return_scale',
+                        type=float,
+                        default=0.03,
+                        help='Desired return scale')
+    parser.add_argument('--replay_size',
+                        type=int,
+                        default=700,
+                        help='Replay rbuffer size')
+    parser.add_argument('--n_warm_up_episodes',
+                        type=int,
+                        default=30,
+                        help='number of warmup episodes')
+    parser.add_argument('--init_time_horizon',
+                        type=int,
+                        default=1,
+                        help='initial desired time horizon')
+    parser.add_argument('--init_desired_reward',
+                        type=int,
+                        default=1,
+                        help='initial desired reward')
+    parser.add_argument('--batch_size',
+                        type=int,
+                        default=1536,
+                        help='batch size')
+    parser.add_argument(
+        '--last_few',
+        type=int,
+        default=25,
+        help='Number of high ranking episodes to use to sample commands')
+    parser.add_argument('--n_episodes_per_iter',
+                        type=int,
+                        default=40,
+                        help='number of new episodes collected per iteration')
+    parser.add_argument('--n_updates_per_iter',
+                        type=int,
+                        default=100,
+                        help='number of policy updates per iteration')
+
+    args = parser.parse_args()
+
+    if args.optuna:
+        study = optuna.create_study()
+        study.optimize(optuna_study, n_trials=100)
+        study.best_params
+    else:
+        main(args)
